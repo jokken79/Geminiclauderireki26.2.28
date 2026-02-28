@@ -1,0 +1,543 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  KEITOSAN
+  TANTOSHA
+  COORDINATOR
+  KANRININSHA
+  EMPLOYEE
+  CONTRACT_WORKER
+}
+
+enum CandidateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIRED
+  WITHDRAWN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum VisaStatus {
+  PERMANENT_RESIDENT
+  SPOUSE_OF_JAPANESE
+  LONG_TERM_RESIDENT
+  DESIGNATED_ACTIVITIES
+  TECHNICAL_INTERN_1
+  TECHNICAL_INTERN_2
+  TECHNICAL_INTERN_3
+  SPECIFIED_SKILLED_1
+  SPECIFIED_SKILLED_2
+  STUDENT
+  DEPENDENT
+  OTHER
+}
+
+enum JlptLevel {
+  N1
+  N2
+  N3
+  N4
+  N5
+  NONE
+}
+
+enum DocumentType {
+  RESIDENCE_CARD
+  PASSPORT
+  DRIVER_LICENSE
+  FORKLIFT_LICENSE
+  CRANE_LICENSE
+  WELDING_CERT
+  HEALTH_CHECK
+  CONTRACT
+  OTHER
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  ON_LEAVE
+}
+
+enum AlertType {
+  VISA_EXPIRY
+  CONTRACT_EXPIRY
+  TEISHOKUBI
+  DOCUMENT_EXPIRY
+  UNASSIGNED_CANDIDATE
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ============================================================
+// USER & AUTH
+// ============================================================
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  hashedPassword String
+  role           UserRole @default(TANTOSHA)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  auditLogs      AuditLog[]
+  adminAuditLogs AdminAuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// ============================================================
+// CANDIDATE (候補者) — Central Model
+// ============================================================
+
+model Candidate {
+  id        String          @id @default(cuid())
+  status    CandidateStatus @default(PENDING)
+  version   Int             @default(1)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  // ===== 名前 (Name - 3 writing systems) =====
+  lastNameKanji    String  @db.VarChar(50)
+  firstNameKanji   String  @db.VarChar(50)
+  lastNameFurigana String  @db.VarChar(50)
+  firstNameFurigana String @db.VarChar(50)
+  lastNameRomaji   String? @db.VarChar(50)
+  firstNameRomaji  String? @db.VarChar(50)
+
+  // ===== 個人情報 (Personal) =====
+  birthDate   DateTime  @db.Date
+  gender      Gender?
+  nationality String    @db.VarChar(50)
+  bloodType   String?   @db.VarChar(5)
+  height      Float?
+  weight      Float?
+  shoeSize    Float?
+  dominantHand String?  @db.VarChar(10)
+  visionLeft  Float?
+  visionRight Float?
+
+  // ===== 連絡先 (Contact) =====
+  postalCode     String? @db.VarChar(8)
+  prefecture     String? @db.VarChar(10)
+  city           String? @db.VarChar(50)
+  addressLine1   String? @db.VarChar(100)
+  addressLine2   String? @db.VarChar(100)
+  addressFurigana String? @db.VarChar(200)
+  phone          String? @db.VarChar(20)
+  email          String? @db.VarChar(100)
+
+  // ===== 在留情報 (Immigration) =====
+  passportNumber      String?    @db.VarChar(20)
+  passportExpiry      DateTime?  @db.Date
+  residenceCardNumber String?    @db.VarChar(20)
+  residenceCardExpiry DateTime?  @db.Date
+  visaStatus          VisaStatus?
+  visaExpiry          DateTime?  @db.Date
+
+  // ===== 写真 (Photo) =====
+  photoDataUrl String? @db.Text
+
+  // ===== 経験チェックボックス (Experience Checkboxes) =====
+  expWelding    Boolean @default(false)
+  expForklift   Boolean @default(false)
+  expLineWork   Boolean @default(false)
+  expAssembly   Boolean @default(false)
+  expPacking    Boolean @default(false)
+  expInspection Boolean @default(false)
+  expPainting   Boolean @default(false)
+  expMachining  Boolean @default(false)
+  expCleaning   Boolean @default(false)
+  expCooking    Boolean @default(false)
+  expOther      String? @db.VarChar(200)
+
+  // ===== 言語 (Languages) =====
+  jlptLevel            JlptLevel @default(NONE)
+  japaneseConversation  String?   @db.VarChar(50)
+  otherLanguages        String?   @db.VarChar(200)
+
+  // ===== 資格 (Qualifications) =====
+  hasDriverLicense   Boolean @default(false)
+  driverLicenseType  String? @db.VarChar(50)
+  hasForkliftLicense Boolean @default(false)
+  hasCraneLicense    Boolean @default(false)
+  hasWeldingCert     Boolean @default(false)
+
+  // ===== 弁当・アレルギー (Preferences) =====
+  bentoPreference String? @db.VarChar(100)
+  allergies       String? @db.VarChar(200)
+
+  // ===== 面接 (Interview) =====
+  interviewDate      DateTime? @db.Date
+  interviewResult    String?   @db.VarChar(50)
+  interviewNotes     String?   @db.Text
+  covidVaccineStatus String?   @db.VarChar(50)
+
+  // ===== 緊急連絡先 (Emergency Contact) =====
+  emergencyContactName     String? @db.VarChar(50)
+  emergencyContactPhone    String? @db.VarChar(20)
+  emergencyContactRelation String? @db.VarChar(30)
+
+  // ===== Relations =====
+  education      EducationHistory[]
+  workHistory    WorkHistory[]
+  qualifications Qualification[]
+  familyMembers  FamilyMember[]
+  documents      Document[]
+  hakenshain     HakenshainAssignment[]
+  ukeoi          UkeoiAssignment[]
+  skillSheets    SkillSheet[]
+
+  // ===== Indexes for Japanese search =====
+  @@index([lastNameKanji, firstNameKanji])
+  @@index([lastNameFurigana, firstNameFurigana])
+  @@index([lastNameRomaji, firstNameRomaji])
+  @@index([status])
+  @@index([nationality])
+  @@index([visaExpiry])
+}
+
+// ============================================================
+// EDUCATION HISTORY (学歴)
+// ============================================================
+
+model EducationHistory {
+  id          String @id @default(cuid())
+  candidateId String
+  year        Int
+  month       Int
+  schoolName  String @db.VarChar(100)
+  faculty     String? @db.VarChar(100)
+  eventType   String @db.VarChar(20) // 入学, 卒業, 中退
+  sortOrder   Int    @default(0)
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+// ============================================================
+// WORK HISTORY (職歴)
+// ============================================================
+
+model WorkHistory {
+  id          String  @id @default(cuid())
+  candidateId String
+  startYear   Int
+  startMonth  Int
+  endYear     Int?
+  endMonth    Int?
+  companyName String  @db.VarChar(100)
+  position    String? @db.VarChar(100)
+  jobContent  String? @db.VarChar(200)
+  eventType   String  @db.VarChar(20) // 入社, 退社, 在職中
+  sortOrder   Int     @default(0)
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+// ============================================================
+// QUALIFICATIONS (資格)
+// ============================================================
+
+model Qualification {
+  id          String  @id @default(cuid())
+  candidateId String
+  year        Int
+  month       Int
+  name        String  @db.VarChar(100)
+  details     String? @db.VarChar(200)
+  sortOrder   Int     @default(0)
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+// ============================================================
+// FAMILY MEMBERS (家族)
+// ============================================================
+
+model FamilyMember {
+  id           String  @id @default(cuid())
+  candidateId  String
+  name         String  @db.VarChar(50)
+  relationship String  @db.VarChar(30)
+  age          Int?
+  liveTogether Boolean @default(false)
+  sortOrder    Int     @default(0)
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+// ============================================================
+// CLIENT COMPANY (派遣先・工場)
+// ============================================================
+
+model ClientCompany {
+  id          String  @id @default(cuid())
+  name        String  @db.VarChar(100)
+  nameKana    String? @db.VarChar(100)
+  industry    String? @db.VarChar(50)
+  postalCode  String? @db.VarChar(8)
+  prefecture  String? @db.VarChar(10)
+  city        String? @db.VarChar(50)
+  address     String? @db.VarChar(200)
+  phone       String? @db.VarChar(20)
+  fax         String? @db.VarChar(20)
+  contactName String? @db.VarChar(50)
+  contactEmail String? @db.VarChar(100)
+  notes       String? @db.Text
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hakenshain HakenshainAssignment[]
+  ukeoi      UkeoiAssignment[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+// ============================================================
+// HAKENSHAIN ASSIGNMENT (派遣社員)
+// ============================================================
+
+model HakenshainAssignment {
+  id          String           @id @default(cuid())
+  candidateId String
+  companyId   String
+  status      AssignmentStatus @default(ACTIVE)
+  version     Int              @default(1)
+
+  // ===== 雇用情報 (Employment) =====
+  hakemotoId     Int      @default(autoincrement())
+  hireDate       DateTime @db.Date
+  contractEndDate DateTime? @db.Date
+  jikyu          Int      // Hourly rate in JPY
+  position       String?  @db.VarChar(100)
+  productionLine String?  @db.VarChar(100)
+  shift          String?  @db.VarChar(50)
+
+  // ===== 抵触日 (3-year dispatch limit) =====
+  teishokubiDate DateTime? @db.Date // Auto-calculated: hireDate + 3 years
+  renewalCount   Int       @default(0)
+
+  // ===== 担当者 (Supervisors) =====
+  dispatchSupervisor String? @db.VarChar(50) // 派遣元責任者
+  clientSupervisor   String? @db.VarChar(50) // 派遣先責任者
+
+  // ===== 銀行口座 (Bank Account - encrypted) =====
+  bankName          String? @db.VarChar(50)
+  bankBranch        String? @db.VarChar(50)
+  bankAccountType   String? @db.VarChar(10)
+  bankAccountNumber String? @db.VarChar(100) // Encrypted
+
+  // ===== 緊急連絡先 (Emergency Contact) =====
+  emergencyName     String? @db.VarChar(50)
+  emergencyPhone    String? @db.VarChar(20)
+  emergencyRelation String? @db.VarChar(30)
+
+  // ===== コピーされた写真 (Copied photo) =====
+  photoDataUrl String? @db.Text
+
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidate Candidate    @relation(fields: [candidateId], references: [id])
+  company   ClientCompany @relation(fields: [companyId], references: [id])
+
+  @@index([candidateId])
+  @@index([companyId])
+  @@index([status])
+  @@index([teishokubiDate])
+  @@index([hireDate])
+}
+
+// ============================================================
+// UKEOI ASSIGNMENT (請負)
+// ============================================================
+
+model UkeoiAssignment {
+  id          String           @id @default(cuid())
+  candidateId String
+  companyId   String
+  status      AssignmentStatus @default(ACTIVE)
+  version     Int              @default(1)
+
+  // ===== 雇用情報 (Employment) =====
+  hireDate       DateTime  @db.Date
+  contractEndDate DateTime? @db.Date
+  monthlySalary  Int       // Monthly salary in JPY
+  position       String?   @db.VarChar(100)
+  projectName    String?   @db.VarChar(100)
+
+  // ===== 偽装請負防止 (Gisou-ukeoi prevention) =====
+  internalSupervisor String @db.VarChar(50) // 自社の現場責任者 (REQUIRED)
+
+  // ===== 銀行口座 (Bank Account - encrypted) =====
+  bankName          String? @db.VarChar(50)
+  bankBranch        String? @db.VarChar(50)
+  bankAccountType   String? @db.VarChar(10)
+  bankAccountNumber String? @db.VarChar(100) // Encrypted
+
+  // ===== 緊急連絡先 (Emergency Contact) =====
+  emergencyName     String? @db.VarChar(50)
+  emergencyPhone    String? @db.VarChar(20)
+  emergencyRelation String? @db.VarChar(30)
+
+  // ===== コピーされた写真 (Copied photo) =====
+  photoDataUrl String? @db.Text
+
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candidate Candidate    @relation(fields: [candidateId], references: [id])
+  company   ClientCompany @relation(fields: [companyId], references: [id])
+
+  @@index([candidateId])
+  @@index([companyId])
+  @@index([status])
+}
+
+// ============================================================
+// DOCUMENT (書類)
+// ============================================================
+
+model Document {
+  id          String       @id @default(cuid())
+  candidateId String
+  type        DocumentType
+  fileName    String       @db.VarChar(200)
+  fileData    String       @db.Text // Base64 encoded
+  mimeType    String       @db.VarChar(50)
+  expiryDate  DateTime?    @db.Date
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@index([type])
+  @@index([expiryDate])
+}
+
+// ============================================================
+// SKILL SHEET (スキルシート - Anonymized)
+// ============================================================
+
+model SkillSheet {
+  id          String   @id @default(cuid())
+  candidateId String
+  initials    String   @db.VarChar(10)  // e.g., "T.H."
+  ageRange    String   @db.VarChar(20)  // e.g., "30代前半"
+  prefecture  String?  @db.VarChar(10)
+  content     Json     // Anonymized skill data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+}
+
+// ============================================================
+// ALERT (アラート)
+// ============================================================
+
+model Alert {
+  id         String        @id @default(cuid())
+  type       AlertType
+  severity   AlertSeverity
+  title      String        @db.VarChar(200)
+  message    String        @db.Text
+  entityId   String?       // Reference to candidate/hakenshain/etc
+  entityType String?       @db.VarChar(50)
+  isRead     Boolean       @default(false)
+  isDismissed Boolean      @default(false)
+  expiresAt  DateTime?
+  createdAt  DateTime      @default(now())
+
+  @@index([type])
+  @@index([severity])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ============================================================
+// AUDIT LOG (監査ログ)
+// ============================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   @db.VarChar(50) // CREATE, UPDATE, DELETE, STATUS_CHANGE
+  tableName String   @db.VarChar(50)
+  recordId  String   @db.VarChar(50)
+  oldValues Json?
+  newValues Json?
+  ipAddress String?  @db.VarChar(45)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([tableName])
+  @@index([recordId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// ADMIN AUDIT LOG (管理者監査ログ)
+// ============================================================
+
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   @db.VarChar(100)
+  details   Json?
+  ipAddress String?  @db.VarChar(45)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
