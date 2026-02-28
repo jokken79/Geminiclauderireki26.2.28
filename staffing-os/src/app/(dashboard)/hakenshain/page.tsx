@@ -1,22 +1,42 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getHakenshainList, getApprovedCandidates } from "@/actions/hakenshain"
+import { HakenshainList } from "@/components/hakenshain/hakenshain-list"
+import type { AssignmentStatus } from "@prisma/client"
 
-export default function HakenshainPage() {
+export default async function HakenshainPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; status?: string; page?: string }>
+}) {
+  const params = await searchParams
+  const page = Number(params.page) || 1
+  const pageSize = 20
+
+  const [{ hakenshain, total }, approvedCandidates] = await Promise.all([
+    getHakenshainList({
+      search: params.search,
+      status: params.status as AssignmentStatus | undefined,
+      page,
+      pageSize,
+    }),
+    getApprovedCandidates(),
+  ])
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">派遣社員一覧</h1>
-        <p className="text-sm text-muted-foreground">派遣社員の管理・抵触日追跡</p>
+        <p className="text-sm text-muted-foreground">
+          派遣社員の管理・抵触日追跡
+        </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>派遣社員データ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <p>派遣社員データはまだありません。候補者を承認して入社連絡票から登録してください。</p>
-          </div>
-        </CardContent>
-      </Card>
+
+      <HakenshainList
+        hakenshain={hakenshain}
+        total={total}
+        currentPage={page}
+        pageSize={pageSize}
+        hasApprovedCandidates={approvedCandidates.length > 0}
+      />
     </div>
   )
 }
