@@ -1,0 +1,1155 @@
+# MEGA-PROMPT: Sistema Moderno de Gestión de Rirekisho (履歴書) y Candidatos para Empresa de Staffing Japonesa
+
+---
+
+## CONTEXTO DEL PROYECTO
+
+Construir desde cero una aplicación web moderna y completa para una empresa de staffing/人材派遣会社 en Japón que gestione:
+
+1. **Rirekisho (履歴書)** — Currículum japonés estándar con foto
+2. **Candidatos (候補者)** — Gestión completa de candidatos/trabajadores
+3. **Hakenshain (派遣社員)** — Trabajadores despachados/temporales
+4. **Ukeoi (請負)** — Trabajadores por contrato/subcontratación
+5. **Importación de datos** — Flujo de datos desde Rirekisho hacia Hakenshain o Ukeoi
+6. **Fotos** — Upload, crop, resize, almacenamiento y transferencia entre modelos
+
+---
+
+## STACK TECNOLÓGICO RECOMENDADO
+
+### Frontend
+```
+- Next.js 15+ (App Router) — Framework React con SSR/SSG
+- TypeScript — Tipado estricto
+- Tailwind CSS 4+ — Utility-first CSS
+- shadcn/ui — Componentes UI modernos y accesibles
+- React Hook Form + Zod — Formularios con validación
+- TanStack Table — Tablas con sorting, filtering, pagination
+- react-easy-crop — Recorte de fotos de perfil (3x4cm formato japonés)
+- next-intl o i18next — Internacionalización (JP/EN/ES)
+- Lucide React — Iconos
+- Sonner — Notificaciones toast
+```
+
+### Backend
+```
+- Next.js API Routes (Route Handlers) — O alternativamente:
+- Django 5+ con Django REST Framework — Si se prefiere Python
+- PostgreSQL 16+ — Base de datos con soporte UTF-8 completo para japonés
+- Prisma ORM (para Next.js) o Django ORM — Gestión de BD
+- NextAuth.js v5 o Django Allauth — Autenticación
+- Uploadthing o AWS S3 — Almacenamiento de fotos
+- Sharp (Node.js) o Pillow (Python) — Procesamiento de imágenes
+- Puppeteer o @react-pdf/renderer — Generación de PDF rirekisho
+```
+
+### Base de Datos
+```
+- PostgreSQL 16+ con encoding UTF-8, locale ja_JP.UTF-8
+- Collation japonés para ordenamiento correcto de nombres
+- Índices GIN para búsqueda full-text en japonés
+- pg_trgm para búsqueda por similitud de nombres en kana/kanji
+```
+
+### DevOps / Deploy
+```
+- Docker + Docker Compose — Contenedores
+- Vercel o Railway — Deploy (Next.js)
+- GitHub Actions — CI/CD
+- MinIO o AWS S3 — Object storage para fotos
+```
+
+---
+
+## MODELOS DE DATOS COMPLETOS
+
+### 1. RIREKISHO (履歴書) — Currículum Japonés
+
+```
+Modelo: Rirekisho
+├── id (UUID, PK)
+├── created_at (DateTime)
+├── updated_at (DateTime)
+├── status (Enum: draft/submitted/approved/rejected)
+│
+├── ===== FOTO (写真) =====
+├── photo (ImageField) — Foto formato 3x4cm (縦4cm×横3cm)
+├── photo_original (ImageField) — Foto original sin recortar
+├── photo_cropped (ImageField) — Foto recortada y procesada
+├── photo_crop_data (JSON) — Datos de recorte {x, y, width, height, rotation}
+│
+├── ===== INFORMACIÓN BÁSICA (基本情報) =====
+├── submission_date (Date) — 日付 (fecha de presentación)
+├── last_name_kanji (String[50]) — 氏 (apellido en kanji)
+├── first_name_kanji (String[50]) — 名 (nombre en kanji)
+├── last_name_furigana (String[50]) — ふりがな氏 (apellido en hiragana)
+├── first_name_furigana (String[50]) — ふりがな名 (nombre en hiragana)
+├── last_name_romaji (String[50]) — Apellido en romaji
+├── first_name_romaji (String[50]) — Nombre en romaji
+├── birth_date (Date) — 生年月日
+├── age (Integer, computed) — 年齢 (calculado automáticamente)
+├── gender (Enum: male/female/other/prefer_not_to_say) — 性別 (opcional según 厚労省2021)
+├── nationality (String[50]) — 国籍
+│
+├── ===== DIRECCIÓN (住所) =====
+├── postal_code (String[8]) — 郵便番号 (formato: 〒XXX-XXXX)
+├── prefecture (String[10]) — 都道府県
+├── city (String[50]) — 市区町村
+├── address_line1 (String[100]) — 町名・番地
+├── address_line2 (String[100]) — 建物名・部屋番号
+├── address_furigana (String[200]) — ふりがな住所
+│
+├── ===== DIRECCIÓN DE CONTACTO (連絡先) — si difiere =====
+├── contact_postal_code (String[8])
+├── contact_prefecture (String[10])
+├── contact_city (String[50])
+├── contact_address_line1 (String[100])
+├── contact_address_line2 (String[100])
+├── contact_address_furigana (String[200])
+│
+├── ===== CONTACTO (連絡先) =====
+├── phone_number (String[15]) — 電話番号
+├── mobile_number (String[15]) — 携帯電話番号
+├── email (String[254]) — メールアドレス
+│
+├── ===== OPCIONALES (厚労省2021で廃止だがシステムで保持可能) =====
+├── commute_time_minutes (Integer, nullable) — 通勤時間（分）
+├── dependents_count (Integer, nullable) — 扶養家族数（配偶者を除く）
+├── has_spouse (Boolean, nullable) — 配偶者の有無
+├── spouse_dependent (Boolean, nullable) — 配偶者の扶養義務
+│
+├── ===== 志望動機・自己PR =====
+├── motivation (Text) — 志望動機
+├── self_pr (Text) — 自己PR・特技
+├── hobbies (Text, nullable) — 趣味・特技
+├── personal_requests (Text, nullable) — 本人希望記入欄
+│
+├── ===== METADATOS =====
+├── candidate_id (FK → Candidate, nullable) — Relación con candidato
+├── created_by (FK → User) — Usuario que creó
+├── notes (Text, nullable) — Notas internas
+└── is_active (Boolean, default=true)
+
+Relaciones:
+├── education_history → EducationHistory[] (1:N)
+├── work_history → WorkHistory[] (1:N)
+├── qualifications → Qualification[] (1:N)
+└── candidate → Candidate (N:1, nullable)
+```
+
+### 1.1 HISTORIAL EDUCATIVO (学歴)
+
+```
+Modelo: EducationHistory
+├── id (UUID, PK)
+├── rirekisho_id (FK → Rirekisho)
+├── order (Integer) — Orden de visualización
+├── year (Integer) — 年 (年号 o 西暦)
+├── month (Integer) — 月
+├── era_year (String[20], nullable) — 和暦 (令和X年, 平成X年, etc.)
+├── school_name (String[200]) — 学校名
+├── faculty (String[100], nullable) — 学部
+├── department (String[100], nullable) — 学科
+├── event_type (Enum: admission/graduation/withdrawal/transfer)
+│   — 入学/卒業/中退/転入
+└── notes (String[200], nullable) — 備考
+```
+
+### 1.2 HISTORIAL LABORAL (職歴)
+
+```
+Modelo: WorkHistory
+├── id (UUID, PK)
+├── rirekisho_id (FK → Rirekisho)
+├── order (Integer)
+├── start_year (Integer) — 入社年
+├── start_month (Integer) — 入社月
+├── end_year (Integer, nullable) — 退社年
+├── end_month (Integer, nullable) — 退社月
+├── is_current (Boolean) — 現在在職中
+├── company_name (String[200]) — 会社名
+├── department (String[100], nullable) — 部署
+├── position (String[100], nullable) — 役職
+├── job_description (Text, nullable) — 業務内容
+├── employment_type (Enum: full_time/part_time/contract/dispatch/other)
+│   — 正社員/パート/契約/派遣/その他
+├── leaving_reason (String[200], nullable) — 退職理由
+│   — 例: "一身上の都合により退職", "会社都合により退職"
+└── era_notation (String[20], nullable) — 和暦表記
+```
+
+### 1.3 免許・資格 (Licencias y Cualificaciones)
+
+```
+Modelo: Qualification
+├── id (UUID, PK)
+├── rirekisho_id (FK → Rirekisho)
+├── order (Integer)
+├── year (Integer) — 取得年
+├── month (Integer) — 取得月
+├── era_year (String[20], nullable) — 和暦
+├── name (String[200]) — 資格・免許名 (nombre oficial completo)
+├── category (Enum: license/certification/language/it/other)
+│   — 免許/資格/語学/IT/その他
+├── issuing_body (String[200], nullable) — 発行機関
+├── expiry_date (Date, nullable) — 有効期限
+└── notes (String[200], nullable)
+```
+
+---
+
+### 2. CANDIDATO (候補者)
+
+```
+Modelo: Candidate
+├── id (UUID, PK)
+├── created_at (DateTime)
+├── updated_at (DateTime)
+│
+├── ===== INFORMACIÓN PERSONAL =====
+├── employee_code (String[20], unique) — 社員コード (auto-generado)
+├── last_name_kanji (String[50])
+├── first_name_kanji (String[50])
+├── last_name_furigana (String[50])
+├── first_name_furigana (String[50])
+├── last_name_romaji (String[50])
+├── first_name_romaji (String[50])
+├── birth_date (Date)
+├── gender (Enum)
+├── nationality (String[50])
+├── photo (ImageField) — Foto de perfil (importada de rirekisho o subida aparte)
+│
+├── ===== CONTACTO =====
+├── postal_code (String[8])
+├── prefecture (String[10])
+├── city (String[50])
+├── address_line1 (String[100])
+├── address_line2 (String[100])
+├── phone_number (String[15])
+├── mobile_number (String[15])
+├── email (String[254])
+│
+├── ===== ESTADO Y CLASIFICACIÓN =====
+├── status (Enum: registered/active/dispatched/contracted/inactive/blacklisted)
+│   — 登録済/稼働中/派遣中/請負中/非稼働/ブラックリスト
+├── worker_type (Enum: hakenshain/ukeoi/both/unassigned)
+│   — 派遣社員/請負/両方/未割当
+├── registration_date (Date) — 登録日
+├── availability_date (Date, nullable) — 稼働可能日
+│
+├── ===== COMPETENCIAS =====
+├── japanese_level (Enum: N1/N2/N3/N4/N5/native/none) — 日本語レベル
+├── english_level (Enum: basic/intermediate/advanced/native/none)
+├── pc_skills (JSON) — {word: level, excel: level, powerpoint: level, ...}
+├── typing_speed (Integer, nullable) — タイピング速度 (文字/分)
+├── special_skills (Text, nullable) — 特殊技能
+│
+├── ===== PREFERENCIAS LABORALES =====
+├── desired_hourly_rate (Decimal, nullable) — 希望時給
+├── desired_monthly_salary (Decimal, nullable) — 希望月給
+├── preferred_work_areas (JSON) — 希望勤務エリア [都道府県リスト]
+├── preferred_job_types (JSON) — 希望職種 [職種リスト]
+├── can_work_overtime (Boolean) — 残業可能
+├── can_work_shifts (Boolean) — シフト勤務可能
+├── has_drivers_license (Boolean) — 運転免許あり
+├── drivers_license_type (String[50], nullable) — 免許種類
+│
+├── ===== INFORMACIÓN BANCARIA =====
+├── bank_name (String[100], nullable, encrypted) — 銀行名
+├── bank_branch (String[100], nullable, encrypted) — 支店名
+├── account_type (Enum: ordinary/current, nullable) — 普通/当座
+├── account_number (String[20], nullable, encrypted) — 口座番号
+├── account_holder (String[100], nullable, encrypted) — 口座名義
+│
+├── ===== SEGURO SOCIAL =====
+├── has_health_insurance (Boolean) — 健康保険加入
+├── has_pension (Boolean) — 厚生年金加入
+├── has_employment_insurance (Boolean) — 雇用保険加入
+├── health_insurance_number (String[20], nullable, encrypted)
+├── pension_number (String[20], nullable, encrypted)
+├── my_number (String[12], nullable, encrypted) — マイナンバー
+│
+├── ===== METADATOS =====
+├── recruiter_id (FK → User, nullable) — 担当者
+├── source (Enum: web/referral/agency/walk_in/other) — 登録経路
+├── notes (Text, nullable)
+├── internal_rating (Integer, 1-5, nullable) — 内部評価
+└── is_active (Boolean, default=true)
+
+Relaciones:
+├── rirekisho_list → Rirekisho[] (1:N) — Puede tener múltiples versiones
+├── hakenshain_assignments → HakenshainAssignment[] (1:N)
+├── ukeoi_assignments → UkeoiAssignment[] (1:N)
+├── skill_sheets → SkillSheet[] (1:N)
+├── documents → CandidateDocument[] (1:N)
+└── activity_log → ActivityLog[] (1:N)
+```
+
+---
+
+### 3. HAKENSHAIN — ASIGNACIÓN DE TRABAJADOR DESPACHADO (派遣社員)
+
+```
+Modelo: HakenshainAssignment
+├── id (UUID, PK)
+├── created_at (DateTime)
+├── updated_at (DateTime)
+│
+├── ===== RELACIONES PRINCIPALES =====
+├── candidate_id (FK → Candidate) — 派遣社員
+├── dispatch_company_id (FK → Company) — 派遣元 (nuestra empresa)
+├── client_company_id (FK → ClientCompany) — 派遣先企業
+├── imported_from_rirekisho_id (FK → Rirekisho, nullable)
+│   — Rirekisho origen de la importación
+│
+├── ===== CONTRATO (派遣契約) =====
+├── contract_number (String[30], unique) — 契約番号
+├── contract_type (Enum: fixed_term/indefinite/temp_to_perm)
+│   — 有期/無期/紹介予定派遣
+├── contract_start_date (Date) — 契約開始日
+├── contract_end_date (Date, nullable) — 契約終了日
+├── renewal_count (Integer, default=0) — 更新回数
+├── max_dispatch_period (Date, nullable) — 派遣期間制限（最長3年）
+│
+├── ===== CONDICIONES LABORALES (就業条件) =====
+├── work_location (String[200]) — 就業場所
+├── department (String[100]) — 配属部署
+├── position_title (String[100]) — 役職・肩書き
+├── job_description (Text) — 業務内容
+├── job_category (String[100]) — 業務の種類
+├── responsibility_level (Text, nullable) — 業務に伴う責任の程度
+├── authority_scope (Text, nullable) — 付与される権限の範囲
+│
+├── ===== HORARIO (勤務時間) =====
+├── work_start_time (Time) — 始業時刻
+├── work_end_time (Time) — 終業時刻
+├── break_duration_minutes (Integer) — 休憩時間（分）
+├── work_days_per_week (Integer) — 週の勤務日数
+├── work_days_pattern (JSON) — 勤務日パターン [月,火,水,木,金]
+├── overtime_allowed (Boolean) — 時間外労働の有無
+├── overtime_limit_hours (Decimal, nullable) — 時間外労働上限
+│
+├── ===== REMUNERACIÓN (報酬) =====
+├── billing_rate (Decimal) — 派遣料金（時給）— 派遣先への請求
+├── hourly_wage (Decimal) — 時給（派遣社員への支払い）
+├── overtime_rate (Decimal, nullable) — 残業割増率
+├── transportation_allowance (Decimal, nullable) — 交通費
+├── payment_method (Enum: monthly/biweekly)
+│
+├── ===== COMPLIANCE (法令遵守) =====
+├── is_labor_agreement_worker (Boolean)
+│   — 労使協定対象派遣労働者か否か (2020年法改正)
+├── equal_pay_method (Enum: equal_pay/labor_agreement)
+│   — 均等均衡方式/労使協定方式
+├── health_insurance_enrolled (Boolean) — 健康保険加入
+├── pension_enrolled (Boolean) — 厚生年金加入
+├── employment_insurance_enrolled (Boolean) — 雇用保険加入
+├── is_over_60 (Boolean) — 60歳以上か否か
+│
+├── ===== RESPONSABLES =====
+├── dispatch_manager_id (FK → User) — 派遣元責任者
+├── client_manager_name (String[100]) — 派遣先責任者名
+├── client_manager_contact (String[100]) — 派遣先責任者連絡先
+│
+├── ===== ESTADO =====
+├── status (Enum: pending/active/completed/terminated/renewed)
+│   — 準備中/稼働中/完了/終了/更新済
+├── termination_reason (Text, nullable) — 終了理由
+├── termination_date (Date, nullable)
+│
+├── ===== SKILL SHEET (スキルシート) =====
+├── skill_sheet_id (FK → SkillSheet, nullable)
+│
+└── ===== NOTAS =====
+    ├── notes (Text, nullable)
+    └── complaints_handling (Text, nullable) — 苦情処理に関する事項
+
+Relaciones:
+├── candidate → Candidate
+├── client_company → ClientCompany
+├── skill_sheet → SkillSheet
+├── timesheets → Timesheet[] (1:N)
+├── contract_renewals → ContractRenewal[] (1:N)
+└── imported_rirekisho → Rirekisho (nullable)
+```
+
+---
+
+### 4. UKEOI — ASIGNACIÓN POR CONTRATO (請負)
+
+```
+Modelo: UkeoiAssignment
+├── id (UUID, PK)
+├── created_at (DateTime)
+├── updated_at (DateTime)
+│
+├── ===== RELACIONES =====
+├── candidate_id (FK → Candidate) — 請負労働者
+├── client_company_id (FK → ClientCompany) — 発注元企業
+├── project_id (FK → UkeoiProject, nullable) — プロジェクト
+├── imported_from_rirekisho_id (FK → Rirekisho, nullable)
+│
+├── ===== CONTRATO (請負契約) =====
+├── contract_number (String[30], unique) — 契約番号
+├── contract_start_date (Date) — 契約開始日
+├── contract_end_date (Date) — 契約終了日
+├── contract_amount (Decimal) — 請負金額
+├── payment_terms (String[200]) — 支払条件
+├── deliverables (Text) — 成果物・納品物
+│
+├── ===== TRABAJO (業務) =====
+├── work_location (String[200]) — 作業場所
+├── job_description (Text) — 業務内容
+├── required_skills (JSON) — 必要スキル
+│
+├── ===== DIFERENCIAS CLAVE CON HAKEN =====
+│   ★ En 請負, NO hay指揮命令関係 (relación de mando) con el cliente
+│   ★ La gestión la hace nuestra empresa, no el cliente
+│   ★ Se cobra por resultado/proyecto, no por hora
+├── our_supervisor_id (FK → User) — 現場責任者（自社）
+├── supervision_method (Text) — 指揮命令の方法（自社管理）
+│
+├── ===== REMUNERACIÓN DEL TRABAJADOR =====
+├── worker_monthly_salary (Decimal) — 月給
+├── worker_daily_rate (Decimal, nullable) — 日給
+├── transportation_allowance (Decimal, nullable)
+│
+├── ===== ESTADO =====
+├── status (Enum: pending/active/completed/terminated)
+├── completion_date (Date, nullable) — 完了日
+├── acceptance_date (Date, nullable) — 検収日
+│
+└── notes (Text, nullable)
+```
+
+---
+
+### 5. SKILL SHEET (スキルシート) — Para enviar a clientes
+
+```
+Modelo: SkillSheet
+├── id (UUID, PK)
+├── candidate_id (FK → Candidate)
+├── created_at (DateTime)
+├── version (Integer, default=1)
+│
+├── ===== INFORMACIÓN ANONIMIZADA (個人情報保護) =====
+│   ★ Por ley (労働者派遣法26条7項), NO se incluyen datos personales
+├── initials (String[10]) — イニシャル (ej: "T.H.")
+├── age_range (String[20]) — 年齢層 (ej: "30代後半")
+├── nearest_station (String[50]) — 最寄駅
+├── general_area (String[50]) — 大まかな住所 (ej: "東京都世田谷区在住")
+│
+├── ===== RESUMEN DE CARRERA =====
+├── career_summary (Text) — キャリア概要
+├── total_experience_years (Integer) — 総経験年数
+│
+├── ===== EXPERIENCIA LABORAL (会社名伏せ) =====
+├── work_experiences (JSON[]) — 職務経歴 (nombre de empresa oculto)
+│   [{ industry: "サービス業",
+│      period: "2018年～2021年",
+│      role: "営業事務",
+│      description: "営業用資料の作成、電話応対（22社担当）...",
+│      tools_used: ["Word", "Excel", "PowerPoint"] }]
+│
+├── ===== COMPETENCIAS =====
+├── pc_skills (JSON) — PCスキル
+├── language_skills (JSON) — 語学力
+├── qualifications (JSON) — 保有資格
+├── special_skills (Text) — 活かせるスキル
+│
+├── ===== DISPONIBILIDAD =====
+├── available_from (Date) — 就業可能日
+├── current_employment_status (String[50]) — 就業の有無
+├── overtime_available (Boolean) — 残業対応
+│
+├── ===== PDF =====
+├── pdf_file (FileField, nullable) — 生成されたPDF
+└── is_latest (Boolean, default=true) — 最新版フラグ
+```
+
+---
+
+### 6. EMPRESA CLIENTE (派遣先・発注元)
+
+```
+Modelo: ClientCompany
+├── id (UUID, PK)
+├── company_name (String[200]) — 企業名
+├── company_name_furigana (String[200])
+├── industry (String[100]) — 業種
+├── postal_code (String[8])
+├── address (String[300])
+├── phone (String[15])
+├── contact_person (String[100]) — 担当者名
+├── contact_email (String[254])
+├── contract_type (Enum: dispatch_only/ukeoi_only/both)
+├── payment_terms (String[200]) — 支払条件
+├── notes (Text, nullable)
+└── is_active (Boolean, default=true)
+```
+
+---
+
+## SISTEMA DE FOTOS — ESPECIFICACIÓN COMPLETA
+
+### Requisitos de Foto para Rirekisho Japonés
+
+```
+- Tamaño estándar: 縦4cm × 横3cm (vertical 4cm × horizontal 3cm)
+- Aspecto ratio: 4:3 (vertical)
+- Fondo: blanco, azul claro, o liso
+- Desde el pecho hacia arriba (胸から上)
+- Tomada en los últimos 3 meses
+- Resolución mínima recomendada: 600×800 pixels
+- Formato: JPEG, calidad 85%+
+```
+
+### Flujo de Fotos
+
+```
+1. UPLOAD
+   └→ Usuario sube foto original (cualquier tamaño/formato)
+   └→ Se guarda como photo_original
+
+2. CROP (Recorte interactivo en frontend)
+   └→ react-easy-crop con aspect ratio 3:4 (ancho:alto)
+   └→ El usuario ajusta el recorte y rotación
+   └→ Se envía crop_data: {x, y, width, height, rotation}
+
+3. PROCESS (Backend)
+   └→ Sharp (Node.js) o Pillow (Python) aplica el recorte
+   └→ Resize a 600×800px (o resolución configurable)
+   └→ Compresión JPEG calidad 85%
+   └→ Se guarda como photo_cropped
+
+4. DISPLAY
+   └→ En listados: thumbnail 150×200px
+   └→ En detalle: 300×400px
+   └→ En PDF rirekisho: 3cm×4cm a 300dpi
+
+5. TRANSFER (Importación)
+   └→ Al importar Rirekisho → Candidate: se COPIA la foto
+   └→ Al importar Candidate → Hakenshain: se REFERENCIA (FK)
+   └→ Para SkillSheet: NO se incluye foto (privacidad)
+```
+
+### Almacenamiento
+
+```
+Estructura de archivos:
+/media/
+├── rirekisho/
+│   ├── {rirekisho_id}/
+│   │   ├── original_{timestamp}.jpg
+│   │   ├── cropped_{timestamp}.jpg
+│   │   └── thumbnail_{timestamp}.jpg
+├── candidates/
+│   ├── {candidate_id}/
+│   │   ├── profile_{timestamp}.jpg
+│   │   └── thumbnail_{timestamp}.jpg
+└── documents/
+    └── {candidate_id}/
+        └── {document_name}_{timestamp}.ext
+```
+
+---
+
+## SISTEMA DE IMPORTACIÓN DE DATOS — ESPECIFICACIÓN COMPLETA
+
+### Flujo 1: Rirekisho → Candidato (履歴書 → 候補者登録)
+
+```
+Descripción: Cuando se registra un rirekisho, se puede crear automáticamente
+un candidato con los datos básicos importados.
+
+Campos que se importan:
+┌──────────────────────────────┬───────────────────────────────┐
+│ RIREKISHO (origen)           │ CANDIDATE (destino)           │
+├──────────────────────────────┼───────────────────────────────┤
+│ photo_cropped                │ photo (COPIA del archivo)     │
+│ last_name_kanji              │ last_name_kanji               │
+│ first_name_kanji             │ first_name_kanji              │
+│ last_name_furigana           │ last_name_furigana            │
+│ first_name_furigana          │ first_name_furigana           │
+│ last_name_romaji             │ last_name_romaji              │
+│ first_name_romaji            │ first_name_romaji             │
+│ birth_date                   │ birth_date                    │
+│ gender                       │ gender                        │
+│ nationality                  │ nationality                   │
+│ postal_code                  │ postal_code                   │
+│ prefecture                   │ prefecture                    │
+│ city                         │ city                          │
+│ address_line1                │ address_line1                 │
+│ address_line2                │ address_line2                 │
+│ phone_number                 │ phone_number                  │
+│ mobile_number                │ mobile_number                 │
+│ email                        │ email                         │
+│ qualifications[]             │ (referencia via rirekisho FK) │
+│ education_history[]          │ (referencia via rirekisho FK) │
+│ work_history[]               │ (referencia via rirekisho FK) │
+└──────────────────────────────┴───────────────────────────────┘
+
+Reglas de negocio:
+- Si ya existe un candidato con mismo nombre + fecha nacimiento → ACTUALIZAR
+- Si no existe → CREAR nuevo candidato
+- El rirekisho queda vinculado: rirekisho.candidate_id = new_candidate.id
+- Status inicial del candidato: "registered" (登録済)
+- Se genera employee_code automáticamente
+- La foto se COPIA (no referencia) para independencia
+```
+
+### Flujo 2: Candidato → Hakenshain (候補者 → 派遣社員配置)
+
+```
+Descripción: Cuando un candidato es asignado a un cliente como trabajador
+despachado, se crea un registro HakenshainAssignment.
+
+Datos que se importan/referencian:
+┌──────────────────────────────┬────────────────────────────────┐
+│ CANDIDATE (origen)           │ HAKENSHAIN ASSIGNMENT (destino)│
+├──────────────────────────────┼────────────────────────────────┤
+│ id                           │ candidate_id (FK)              │
+│ has_health_insurance         │ health_insurance_enrolled      │
+│ has_pension                  │ pension_enrolled               │
+│ has_employment_insurance     │ employment_insurance_enrolled  │
+│ birth_date (calc. >60)       │ is_over_60                     │
+│ (manual input)               │ client_company_id              │
+│ (manual input)               │ contract_number                │
+│ (manual input)               │ contract_start_date            │
+│ (manual input)               │ contract_end_date              │
+│ (manual input)               │ work_location                  │
+│ (manual input)               │ job_description                │
+│ (manual input)               │ billing_rate                   │
+│ (manual input)               │ hourly_wage                    │
+│ (manual input)               │ work_start_time                │
+│ (manual input)               │ work_end_time                  │
+└──────────────────────────────┴────────────────────────────────┘
+
+También se genera automáticamente:
+- SkillSheet (versión anonimizada del rirekisho para el cliente)
+- El status del candidato cambia a "dispatched" (派遣中)
+- Se registra en el activity_log
+
+Reglas:
+- Verificar que el candidato no tenga otra asignación activa
+  (o permitir múltiples si es part-time)
+- Verificar período máximo de 3 años (派遣期間制限)
+- Calcular automáticamente is_over_60
+- Generar contract_number con formato: HAK-{YYYY}-{SEQ}
+```
+
+### Flujo 3: Candidato → Ukeoi (候補者 → 請負配置)
+
+```
+Descripción: Cuando un candidato es asignado a un proyecto de subcontratación.
+
+Datos que se importan/referencian:
+┌──────────────────────────────┬────────────────────────────────┐
+│ CANDIDATE (origen)           │ UKEOI ASSIGNMENT (destino)     │
+├──────────────────────────────┼────────────────────────────────┤
+│ id                           │ candidate_id (FK)              │
+│ (manual input)               │ client_company_id              │
+│ (manual input)               │ project_id                     │
+│ (manual input)               │ contract_number                │
+│ (manual input)               │ contract_start/end_date        │
+│ (manual input)               │ contract_amount                │
+│ (manual input)               │ job_description                │
+│ (manual input)               │ work_location                  │
+│ (manual input)               │ worker_monthly_salary          │
+│ latest rirekisho_id          │ imported_from_rirekisho_id     │
+└──────────────────────────────┴────────────────────────────────┘
+
+Reglas:
+- El status del candidato cambia a "contracted" (請負中)
+- Generar contract_number: UKE-{YYYY}-{SEQ}
+- ★ IMPORTANTE: En ukeoi la supervisión es INTERNA (no del cliente)
+- Se asigna our_supervisor_id obligatoriamente
+```
+
+### Flujo 4: Importación masiva por CSV/Excel
+
+```
+Descripción: Importar múltiples candidatos/rirekisho desde archivo.
+
+Formatos soportados: CSV (UTF-8 BOM), Excel (.xlsx)
+
+Columnas del CSV:
+氏(漢字), 名(漢字), 氏(ふりがな), 名(ふりがな),
+生年月日, 性別, 国籍, 郵便番号, 都道府県, 市区町村,
+住所1, 住所2, 電話番号, 携帯番号, メール,
+最終学歴, 資格1, 資格2, 資格3, 希望時給, 備考
+
+Proceso:
+1. Upload del archivo
+2. Vista previa de las primeras 10 filas
+3. Mapeo de columnas (drag & drop o selección)
+4. Validación (errores en rojo, warnings en amarillo)
+5. Confirmación del usuario
+6. Importación con barra de progreso
+7. Reporte de resultados (creados/actualizados/errores)
+```
+
+---
+
+## GENERACIÓN DE PDF — RIREKISHO FORMATO JAPONÉS
+
+```
+El PDF debe replicar exactamente el formato estándar japonés:
+
+Especificaciones:
+- Tamaño: A3 (見開き) → se imprime plegado como A4
+- Alternativa: 2 páginas A4
+- Fuente: "Noto Sans JP" o "IPAex明朝" (serif japonesa)
+- Layout: Tablas con bordes negros finos
+- Foto: 3cm×4cm insertada en la esquina superior derecha
+
+Secciones del PDF:
+Página 1 (izquierda):
+├── Fecha de presentación
+├── Foto (3×4cm)
+├── Nombre completo + furigana
+├── Fecha de nacimiento + edad
+├── Género (si aplica)
+├── Dirección actual + furigana
+├── Dirección de contacto (si difiere)
+├── Teléfono / Email
+├── Tabla de 学歴 (educación)
+└── Tabla de 職歴 (trabajo) — inicio
+
+Página 2 (derecha):
+├── Tabla de 職歴 — continuación
+├── Tabla de 免許・資格
+├── 志望動機 (motivación)
+├── 自己PR / 趣味・特技
+├── 本人希望記入欄
+└── (Opcionales: 通勤時間, 扶養家族, etc.)
+
+Implementación recomendada:
+- Option A (Node.js): Puppeteer + plantilla HTML/CSS → PDF
+- Option B (Node.js): @react-pdf/renderer con componentes React
+- Option C (Python): ReportLab o WeasyPrint con template HTML
+- Las fuentes japonesas DEBEN estar embebidas en el PDF
+- Soporte para 和暦 (era japonesa) y 西暦 (calendario occidental)
+```
+
+---
+
+## PÁGINAS Y VISTAS DE LA APLICACIÓN
+
+### Dashboard
+```
+/ — Dashboard principal
+├── Resumen de candidatos activos/inactivos
+├── Asignaciones de hakenshain activas
+├── Contratos de ukeoi activos
+├── Alertas (contratos por vencer, período de 3 años, etc.)
+└── Estadísticas rápidas
+```
+
+### Rirekisho (履歴書)
+```
+/rirekisho — Lista de rirekisho
+/rirekisho/new — Crear nuevo rirekisho (formulario completo con foto upload+crop)
+/rirekisho/[id] — Ver rirekisho
+/rirekisho/[id]/edit — Editar rirekisho
+/rirekisho/[id]/pdf — Generar/descargar PDF
+/rirekisho/[id]/import-to-candidate — Importar como candidato
+```
+
+### Candidatos (候補者)
+```
+/candidates — Lista con filtros avanzados (status, tipo, área, skills)
+/candidates/new — Registrar candidato manualmente
+/candidates/[id] — Perfil completo del candidato
+/candidates/[id]/edit — Editar candidato
+/candidates/[id]/assign-hakenshain — Asignar como hakenshain
+/candidates/[id]/assign-ukeoi — Asignar como ukeoi
+/candidates/[id]/skill-sheet — Ver/generar skill sheet
+/candidates/[id]/history — Historial de asignaciones
+/candidates/import — Importación masiva CSV/Excel
+```
+
+### Hakenshain (派遣社員)
+```
+/hakenshain — Lista de asignaciones de despacho
+/hakenshain/new — Nueva asignación (seleccionar candidato + cliente)
+/hakenshain/[id] — Detalle de asignación
+/hakenshain/[id]/edit — Editar asignación
+/hakenshain/[id]/renew — Renovar contrato
+/hakenshain/[id]/terminate — Terminar asignación
+/hakenshain/[id]/timesheet — Registro de horas
+```
+
+### Ukeoi (請負)
+```
+/ukeoi — Lista de contratos de subcontratación
+/ukeoi/new — Nuevo contrato
+/ukeoi/[id] — Detalle
+/ukeoi/[id]/edit — Editar
+/ukeoi/projects — Gestión de proyectos
+```
+
+### Empresas Cliente (取引先)
+```
+/clients — Lista de empresas cliente
+/clients/new — Registrar nueva empresa
+/clients/[id] — Perfil de empresa
+/clients/[id]/assignments — Trabajadores asignados
+```
+
+### Administración
+```
+/settings — Configuración general
+/users — Gestión de usuarios
+/import-export — Herramientas de importación/exportación
+/reports — Reportes y estadísticas
+```
+
+---
+
+## FUNCIONALIDADES CLAVE A IMPLEMENTAR
+
+### 1. Búsqueda Avanzada
+```
+- Búsqueda por nombre (kanji, furigana, romaji)
+- Búsqueda por skills/qualificaciones
+- Filtro por status, tipo de trabajador, área geográfica
+- Filtro por disponibilidad y rango salarial
+- Búsqueda full-text en japonés (PostgreSQL pg_trgm + unaccent)
+```
+
+### 2. Conversión de Era Japonesa (和暦変換)
+```
+- Automático: 2024 ↔ 令和6年
+- Soporte: 明治, 大正, 昭和, 平成, 令和
+- Helper function para convertir en ambas direcciones
+- Selector de fecha con modo 和暦/西暦
+```
+
+### 3. Validación de Código Postal Japonés
+```
+- API: jp-postal-code o zipcloud.ibsnet.co.jp
+- Auto-fill de 都道府県 + 市区町村 al ingresar 郵便番号
+- Formato: XXX-XXXX con auto-format
+```
+
+### 4. Alertas y Notificaciones
+```
+- Contrato por vencer (30, 14, 7 días antes)
+- Período de 3 años de haken por cumplirse
+- Documentos por vencer (visa, licencias)
+- Candidatos sin asignar por más de X días
+```
+
+### 5. Audit Log / Activity Log
+```
+- Toda acción queda registrada: quién, qué, cuándo
+- Importaciones de datos con registro completo
+- Cambios en contratos y asignaciones
+- Cumplimiento con requisito legal de 3 años de retención
+```
+
+### 6. Permisos y Roles
+```
+- Admin: acceso total
+- Manager: gestión de candidatos y asignaciones
+- Recruiter: registro de rirekisho y candidatos
+- Viewer: solo lectura
+- Cada rol tiene restricciones sobre datos sensibles (マイナンバー, 銀行, etc.)
+```
+
+---
+
+## INSTRUCCIONES PARA CLAUDE/AI
+
+Cuando recibas este prompt, implementa la aplicación siguiendo estos pasos:
+
+### Fase 1: Setup del proyecto
+```
+1. Crear proyecto Next.js 15+ con TypeScript, Tailwind, shadcn/ui
+2. Configurar PostgreSQL con schema Prisma
+3. Configurar autenticación (NextAuth v5)
+4. Configurar upload de archivos (Uploadthing o S3)
+5. Crear layout base con sidebar navigation
+```
+
+### Fase 2: Modelos y base de datos
+```
+1. Definir schema Prisma completo con todos los modelos
+2. Crear migraciones
+3. Seed data para desarrollo
+4. Configurar índices para búsqueda japonesa
+```
+
+### Fase 3: Rirekisho (CRUD completo)
+```
+1. Formulario de creación con todos los campos
+2. Upload y crop de foto (react-easy-crop)
+3. Procesamiento de imagen en backend
+4. Secciones dinámicas (educación, trabajo, qualificaciones)
+5. Vista de detalle
+6. Generación de PDF formato japonés
+7. Lista con búsqueda y filtros
+```
+
+### Fase 4: Candidatos
+```
+1. Modelo y CRUD completo
+2. Importación desde Rirekisho (botón "候補者として登録")
+3. Perfil completo con tabs (info, rirekisho, asignaciones, docs)
+4. Lista con filtros avanzados
+5. Importación masiva CSV/Excel
+```
+
+### Fase 5: Hakenshain y Ukeoi
+```
+1. CRUD de asignaciones de despacho
+2. CRUD de contratos de subcontratación
+3. Importación de datos desde candidato
+4. Generación de Skill Sheet anonimizado
+5. Gestión de renovaciones de contrato
+6. Alertas de vencimiento
+```
+
+### Fase 6: Funcionalidades transversales
+```
+1. Dashboard con estadísticas
+2. Búsqueda global
+3. Sistema de notificaciones
+4. Exportación de datos (CSV, Excel, PDF)
+5. Audit log
+6. Gestión de empresas cliente
+```
+
+---
+
+## NOTAS TÉCNICAS IMPORTANTES
+
+### Soporte de Caracteres Japoneses
+```
+- PostgreSQL: encoding UTF8, LC_COLLATE=ja_JP.UTF-8
+- Prisma: String types manejan UTF-8 nativamente
+- Frontend: lang="ja" en HTML, fuentes japonesas cargadas
+- CSV import: detectar BOM UTF-8 automáticamente
+- PDF: embeber fuentes japonesas (Noto Sans JP)
+```
+
+### Seguridad y Privacidad
+```
+- マイナンバー y datos bancarios: ENCRIPTADOS en BD (AES-256)
+- Skill sheets: NUNCA incluir nombre real ni datos personales
+  (cumplimiento 労働者派遣法26条7項)
+- Fotos: no incluir en skill sheets
+- Logs de acceso a datos sensibles
+- CSRF protection en todos los formularios
+- Rate limiting en API endpoints
+```
+
+### Conversión 和暦 (Era Japonesa)
+```typescript
+// Utility function
+function toWareki(date: Date): string {
+  const year = date.getFullYear();
+  if (year >= 2019) return `令和${year - 2018}年`;
+  if (year >= 1989) return `平成${year - 1988}年`;
+  if (year >= 1926) return `昭和${year - 1925}年`;
+  if (year >= 1912) return `大正${year - 1911}年`;
+  return `明治${year - 1867}年`;
+}
+```
+
+### Validación de Postal Code
+```typescript
+// Auto-fill address from postal code
+async function lookupPostalCode(code: string) {
+  const res = await fetch(
+    `https://zipcloud.ibsnet.co.jp/api/search?zipcode=${code}`
+  );
+  const data = await res.json();
+  if (data.results) {
+    return {
+      prefecture: data.results[0].address1,  // 都道府県
+      city: data.results[0].address2,         // 市区町村
+      town: data.results[0].address3,         // 町域
+    };
+  }
+}
+```
+
+---
+
+## RESUMEN DE RELACIONES ENTRE MODELOS
+
+```
+Rirekisho ──(N:1)──→ Candidate
+    │                    │
+    ├── EducationHistory │
+    ├── WorkHistory      ├──(1:N)──→ HakenshainAssignment ──→ ClientCompany
+    └── Qualification    ├──(1:N)──→ UkeoiAssignment ──→ ClientCompany
+                         ├──(1:N)──→ SkillSheet
+                         ├──(1:N)──→ CandidateDocument
+                         └──(1:N)──→ ActivityLog
+
+Flujo de datos:
+履歴書 (Rirekisho)
+  → [IMPORTAR] → 候補者 (Candidate) + 写真コピー
+    → [ASIGNAR] → 派遣社員 (Hakenshain) + スキルシート自動生成
+    → [ASIGNAR] → 請負 (Ukeoi)
+```
+
+---
+
+---
+
+## COMPLIANCE LEGAL — CAMPOS OBLIGATORIOS POR LEY
+
+### 派遣元管理台帳 (Dispatch Source Management Ledger) — Art. 37 労働者派遣法
+
+Los siguientes 17+ items son **obligatorios por ley** y DEBEN estar en el sistema:
+
+| # | Campo (日本語) | Campo (English) |
+|---|---|---|
+| 1 | 派遣労働者の氏名 | Worker's full name |
+| 2 | 派遣先の名称 | Client company name |
+| 3 | 派遣先の事業所の名称 | Client office/branch name |
+| 4 | 派遣先の事業所の所在地 | Client office address |
+| 5 | 無期雇用か有期雇用かの別 | Indefinite or fixed-term classification |
+| 6 | 労働契約の期間 | Labor contract period (if fixed-term) |
+| 7 | 紹介予定派遣に関する事項 | Temp-to-perm dispatch details |
+| 8 | 労働者派遣の期間及び就業日 | Dispatch period and work days |
+| 9 | 始業及び終業の時刻 | Start and end times |
+| 10 | 60歳以上の者であるか否かの別 | Whether worker is 60+ |
+| 11 | 業務の種類・内容 | Type and content of work |
+| 12 | 業務に伴う責任の程度 | Level of responsibility (2020追加) |
+| 13 | 派遣元責任者 | Dispatch source manager |
+| 14 | 派遣先責任者 | Client-side manager |
+| 15 | 苦情の処理に関する事項 | Complaint handling procedures |
+| 16 | 時間外労働・休日労働 | Overtime and holiday work |
+| 17 | 社会保険・雇用保険の届出 | Insurance enrollment status |
+| 18 | 協定対象派遣労働者か否か | Subject to labor-management agreement (2020追加) |
+| 19 | 教育訓練の日時・内容 | Training dates and content |
+| 20 | キャリアコンサルティング | Career consulting records |
+
+**Retención obligatoria: 3 años después del fin del período de despacho.**
+**Multa por incumplimiento: hasta 300,000 JPY.**
+
+### 派遣先管理台帳 (Dispatch Destination Ledger) — Art. 42
+
+| Campo adicional clave | Descripción |
+|---|---|
+| 指揮命令者 | Direct supervisor at client (persona que da instrucciones) |
+| 就業場所の組織単位 | Organizational unit at work site |
+| 休憩時間 | Break time |
+| 苦情の処理状況 | Complaint handling status |
+
+### 抵触日 (Teishoku-bi) — Fecha límite de 3 años
+
+```
+CRÍTICO: El sistema DEBE rastrear la "抵触日" (fecha de conflicto)
+= la fecha en que se cumple el límite de 3 años de despacho.
+
+- Calcular automáticamente: contract_start_date + 3 años
+- Alertar a 6 meses, 3 meses, 1 mes, 2 semanas antes
+- Opciones al llegar al límite:
+  1. 直接雇用 (contratación directa por el cliente)
+  2. 無期雇用派遣 (despacho con contrato indefinido)
+  3. 新たな派遣先 (asignar a nuevo cliente)
+  4. 雇用安定措置 (medidas de estabilidad laboral)
+```
+
+### 請負 (Ukeoi) — Diferencia Legal Crítica
+
+```
+★ ADVERTENCIA: 偽装請負 (Gisou Ukeoi = Subcontratación Disfrazada)
+
+Es ILEGAL si el cliente da instrucciones directas al trabajador.
+El sistema DEBE:
+1. Registrar supervisor PROPIO (自社の現場責任者) — OBLIGATORIO
+2. NO permitir que el cliente sea registrado como 指揮命令者
+3. Documentar que la gestión es interna
+4. Separar claramente los registros de ukeoi vs hakenshain
+```
+
+---
+
+## FLUJO COMPLETO DE DATOS EN EL SISTEMA
+
+```
+[PASO 1] WEB登録 — Registro web básico
+    ↓ Datos: nombre, contacto, email, password
+
+[PASO 2] 履歴書入力 — Ingreso de rirekisho completo
+    ↓ Datos: educación, trabajo, cualificaciones, foto 3x4cm
+    ↓ Se crea registro en tabla Rirekisho
+
+[PASO 3] 候補者登録 — Registro como candidato
+    ↓ [BOTÓN: "候補者として登録"]
+    ↓ IMPORTACIÓN: Rirekisho → Candidate
+    ↓ La foto se COPIA al candidato
+    ↓ Se genera employee_code automáticamente
+
+[PASO 4] スキルテスト — Tests de habilidades
+    ↓ Datos: typing speed, Excel level, etc.
+    ↓ Se actualizan pc_skills en Candidate
+
+[PASO 5] マッチング — Matching con posiciones
+    ↓ Sistema sugiere candidatos para job orders
+    ↓ Basado en: skills, ubicación, salario, disponibilidad
+
+[PASO 6] スキルシート作成 — Generación de skill sheet
+    ↓ [BOTÓN: "スキルシート作成"]
+    ↓ TRANSFORMACIÓN automática:
+    ↓   nombre → iniciales "T.H"
+    ↓   edad exacta → "30代前半"
+    ↓   dirección → "東京都世田谷区在住"
+    ↓   empresas → "大手商社" (anonimizado)
+    ↓   foto → NO incluida (privacidad)
+
+[PASO 7] 職場見学 — Visita al lugar de trabajo
+    ↓ (Solo informativo, NO es entrevista por ley)
+
+[PASO 8a] 派遣契約作成 — Crear contrato de despacho
+    ↓ [BOTÓN: "派遣社員として配置"]
+    ↓ IMPORTACIÓN: Candidate → HakenshainAssignment
+    ↓ Se crean ambas 管理台帳 automáticamente
+    ↓ Se calcula 抵触日 (fecha límite 3 años)
+    ↓ Status candidato → "dispatched"
+
+[PASO 8b] 請負契約作成 — Crear contrato de subcontratación
+    ↓ [BOTÓN: "請負として配置"]
+    ↓ IMPORTACIÓN: Candidate → UkeoiAssignment
+    ↓ OBLIGATORIO: asignar supervisor propio
+    ↓ Status candidato → "contracted"
+
+[PASO 9] 就業管理 — Gestión durante el trabajo
+    ↓ Timesheets, attendance, payroll, billing
+    ↓ Complaint handling, training records
+
+[PASO 10] 契約終了/更新 — Fin o renovación del contrato
+    ↓ Renovar → incrementar renewal_count, nueva end_date
+    ↓ Terminar → registrar motivo, cambiar status
+    ↓ 3年到達 → activar 雇用安定措置
+```
+
+---
+
+## MÓDULOS DEL SISTEMA (Resumen Ejecutivo)
+
+| Módulo | 日本語 | Descripción |
+|---|---|---|
+| Staff Management | スタッフ管理 | Registro y perfiles de trabajadores |
+| Client Management | クライアント管理 | Empresas destino de despacho |
+| Rirekisho | 履歴書管理 | CRUD de currículums japoneses + PDF |
+| Job Orders | 引合い案件管理 | Posiciones abiertas |
+| Matching | マッチング | Emparejamiento trabajador-posición |
+| Contracts | 契約管理 | Contratos de despacho y subcontratación |
+| Attendance | 勤怠管理 | Control de asistencia y horas |
+| Payroll | 給与管理 | Cálculo de salarios |
+| Billing | 請求管理 | Facturación a clientes |
+| Analytics | 経営分析 | Reportes y KPIs |
+| Compliance | 法令遵守 | 管理台帳, 抵触日, alertas legales |
+
+---
+
+**FIN DEL PROMPT — Este documento contiene toda la especificación necesaria para construir la aplicación completa desde cero, incluyendo compliance legal japonés (労働者派遣法), flujo completo de datos, manejo de fotos, importación entre modelos, y generación de PDF de rirekisho.**
