@@ -1,0 +1,1367 @@
+# MEGA-PROMPT: Sistema Integral de Gestión HR para Empresa de Staffing Japonesa (人材派遣会社)
+
+---
+
+## CONTEXTO Y OBJETIVO
+
+Construir desde cero una aplicación web moderna y completa para una empresa de staffing/人材派遣会社 en Japón. El sistema gestiona el **ciclo de vida completo** de trabajadores temporales: desde candidato hasta empleado activo (派遣社員 o 請負).
+
+### Módulos del Sistema
+
+1. **Rirekisho (履歴書)** — Currículum japonés con 50+ campos y foto 3x4cm
+2. **Candidatos (候補者)** — Registro, entrevista, aprobación/rechazo
+3. **入社届け (Nyusha Todoke)** — Formulario de ingreso laboral (candidato aprobado → empleado)
+4. **派遣社員 (Haken Shain)** — Trabajadores despachados a fábricas/empresas cliente
+5. **請負 (Ukeoi)** — Trabajadores por contrato/subcontratación
+6. **Fábricas/Empresas Cliente (派遣先/工場)** — Gestión de empresas destino
+7. **Documentos** — Gestión de documentos (在留カード, pasaporte, licencias)
+8. **OCR e IA** — Escaneo automático de rirekisho con Azure OCR + AI
+9. **Importación de Fotos** — Upload, almacenamiento y sincronización de fotos entre entidades
+10. **RBAC** — Control de acceso basado en roles con jerarquía
+11. **Auditoría** — Audit trail completo de todas las operaciones
+12. **Importación/Exportación** — CSV, Excel, datos masivos
+
+### Lo que NO incluye este sistema
+
+- ~~Timecards / タイムカード~~ (no implementar)
+- ~~Nóminas / 給与計算~~ (no implementar)
+- ~~Apartamentos / 社宅管理~~ (no implementar)
+- ~~Cálculos de renta / 家賃控除~~ (no implementar)
+
+---
+
+## STACK TECNOLÓGICO RECOMENDADO
+
+### Frontend
+```
+- Next.js 16+ (App Router) — Framework React con SSR/SSG
+- React 19 — Última versión estable
+- TypeScript 5.6+ — Tipado estricto
+- Tailwind CSS 3.4+ — Utility-first CSS
+- Radix UI — Componentes UI accesibles y sin estilos
+- shadcn/ui — Componentes pre-estilizados sobre Radix
+- React Hook Form v7+ + Zod v3+ — Formularios con validación tipada
+- TanStack Query v5 — Data fetching, caching, sincronización
+- TanStack Table — Tablas con sorting, filtering, pagination
+- Zustand v5 — Estado global ligero
+- Recharts — Gráficos y visualización
+- Framer Motion — Animaciones fluidas
+- react-easy-crop — Recorte de fotos (formato 3x4cm japonés)
+- Lucide React — Iconos
+- Vitest — Unit tests
+- Playwright — E2E tests
+```
+
+### Backend
+```
+- FastAPI 0.115+ — Framework Python de alto rendimiento
+- Python 3.11+ — Async nativo
+- SQLAlchemy 2.0+ — ORM con soporte async
+- Alembic — Migraciones de base de datos
+- PostgreSQL 16+ — Base de datos con UTF-8 completo para japonés
+- Redis 7+ — Cache y sesiones
+- JWT (HS256) + CSRF (Double-Submit Cookie) — Autenticación segura
+- Loguru — Logging estructurado
+- pytest + pytest-asyncio — Testing
+- black, isort, mypy, flake8, bandit — Linting y seguridad
+- Pillow — Procesamiento de imágenes
+```
+
+### Base de Datos
+```
+- PostgreSQL 16+ con encoding UTF-8, locale ja_JP.UTF-8
+- Collation japonés para ordenamiento correcto de nombres en kana/kanji
+- Índices GIN para búsqueda full-text en japonés
+- pg_trgm para búsqueda por similitud en kana/kanji
+- JSONB para datos semi-estructurados (formularios OCR, employee_data)
+```
+
+### Infraestructura
+```
+- Docker + Docker Compose — 12+ servicios orquestados
+- Nginx — Reverse proxy con health checks
+- OpenTelemetry — Telemetría distribuida
+- Prometheus + Grafana — Métricas y dashboards
+- GitHub Actions — CI/CD multi-stage
+```
+
+---
+
+## MODELOS DE DATOS COMPLETOS
+
+### 1. USER (ユーザー) — Sistema de Usuarios
+
+```
+Modelo: User
+├── id (Integer, PK, auto)
+├── username (String[50], unique, NOT NULL) — ユーザー名
+├── email (String[100], unique, NOT NULL) — メールアドレス
+├── password_hash (String[255], NOT NULL) — BCrypt hash
+├── role (Enum: UserRole, NOT NULL, default=EMPLOYEE)
+├── full_name (String[100]) — 表示名
+├── is_active (Boolean, default=true)
+├── created_at (DateTime, auto)
+└── updated_at (DateTime, auto)
+
+UserRole (Enum - JERARQUÍA):
+├── SUPER_ADMIN — Acceso total al sistema
+├── ADMIN — Administración general
+├── KEITOSAN — 経理管理 (Finance/Accounting)
+├── TANTOSHA — 担当者 (HR/Operations)
+├── COORDINATOR — Coordinador
+├── KANRININSHA — 管理人者 (Office/HR personnel)
+├── EMPLOYEE — 派遣元社員 (Dispatch workers) - acceso limitado
+└── CONTRACT_WORKER — 請負 (Contract workers) - acceso limitado
+```
+
+---
+
+### 2. CANDIDATE (候補者) — Candidato/Rirekisho Completo
+
+Este es el modelo central. Contiene TODOS los campos del rirekisho japonés (50+ campos).
+
+```
+Modelo: Candidate (SoftDelete)
+├── id (Integer, PK, auto)
+├── rirekisho_id (String[20], unique, NOT NULL) — 履歴書ID (ej: "RK-2025-001")
+├── applicant_id (String[50]) — 応募者ID (ID de formulario)
+│
+├── ===== FECHAS DE RECEPCIÓN =====
+├── reception_date (Date) — 受付日 (fecha de recepción del rirekisho)
+├── arrival_date (Date) — 来日 (fecha de llegada a Japón)
+│
+├── ===== INFORMACIÓN BÁSICA (基本情報) =====
+├── full_name_kanji (String[100]) — 氏名 (nombre completo en kanji)
+├── full_name_kana (String[100]) — フリガナ (nombre en katakana)
+├── full_name_roman (String[100]) — 氏名ローマ字 (nombre en romaji)
+├── gender (String[10]) — 性別 (masculino/femenino)
+├── date_of_birth (Date) — 生年月日
+├── nationality (String[50]) — 国籍
+├── marital_status (String[20]) — 配偶者 (estado civil)
+├── hire_date (Date) — 入社日 (se llena al ser contratado)
+│
+├── ===== FOTO (写真) =====
+├── photo_url (String[255]) — URL de la foto
+├── photo_data_url (Text) — Base64 data URL de la foto de carnet (3x4cm)
+│   ★ La foto se almacena como data:image/jpeg;base64,...
+│   ★ Se COPIA (no referencia) al crear Employee
+│
+├── ===== DIRECCIÓN (住所) =====
+├── postal_code (String[10]) — 郵便番号 (formato: XXX-XXXX)
+├── current_address (Text) — 現住所
+├── address (Text) — 住所 (principal)
+├── address_banchi (String[100]) — 番地 (bloque/lote)
+├── address_building (String[100]) — 物件名 (edificio/apartamento)
+├── registered_address (Text) — 登録住所 (dirección registrada)
+│
+├── ===== CONTACTO (連絡先) =====
+├── phone (String[20]) — 電話番号
+├── mobile (String[20]) — 携帯電話
+├── email (String[100]) — メールアドレス
+│
+├── ===== PASAPORTE (パスポート) =====
+├── passport_number (String[50]) — パスポート番号
+├── passport_expiry (Date) — パスポート期限
+│
+├── ===== 在留カード (RESIDENCE CARD) =====
+├── residence_status (String[50]) — 在留資格 (tipo de visa)
+├── residence_expiry (Date) — 在留期限
+├── residence_card_number (String[50]) — 在留カード番号
+│
+├── ===== 運転免許 (DRIVER'S LICENSE) =====
+├── license_number (String[50]) — 運転免許番号及び条件
+├── license_expiry (Date) — 運転免許期限
+├── car_ownership (String[10]) — 自動車所有 (あり/なし)
+├── voluntary_insurance (String[10]) — 任意保険加入 (あり/なし)
+│
+├── ===== 資格・免許 (QUALIFICATIONS) =====
+├── forklift_license (String[10]) — フォークリフト免許
+├── tama_kake (String[10]) — 玉掛
+├── mobile_crane_under_5t (String[10]) — 移動式クレーン運転士(5トン未満)
+├── mobile_crane_over_5t (String[10]) — 移動式クレーン運転士(5トン以上)
+├── gas_welding (String[10]) — ガス溶接作業者
+├── qualification_1 (String[100]) — 有資格取得1
+├── qualification_2 (String[100]) — 有資格取得2
+├── qualification_3 (String[100]) — 有資格取得3
+│
+├── ===== 家族構成 (FAMILY MEMBERS) — Hasta 5 miembros =====
+├── family_name_N (String[100]) — 氏名N (N=1..5)
+├── family_relation_N (String[50]) — 続柄N
+├── family_age_N (Integer) — 年齢N
+├── family_residence_N (String[50]) — 居住N
+├── family_separate_address_N (Text) — 別居住住所N
+├── family_dependent_N (String[50]) — 扶養N
+│
+├── ===== 職歴 (WORK HISTORY) =====
+├── work_history_company_7 (String[200])
+├── work_history_entry_company_7 (String[200])
+├── work_history_exit_company_7 (String[200])
+│
+├── ===== 経験作業 (WORK EXPERIENCE) — Checkboxes =====
+├── exp_nc_lathe (Boolean) — NC旋盤
+├── exp_lathe (Boolean) — 旋盤
+├── exp_press (Boolean) — プレス
+├── exp_forklift (Boolean) — フォークリフト
+├── exp_packing (Boolean) — 梱包
+├── exp_welding (Boolean) — 溶接
+├── exp_car_assembly (Boolean) — 車部品組立
+├── exp_car_line (Boolean) — 車部品ライン
+├── exp_car_inspection (Boolean) — 車部品検査
+├── exp_electronic_inspection (Boolean) — 電子部品検査
+├── exp_food_processing (Boolean) — 食品加工
+├── exp_casting (Boolean) — 鋳造
+├── exp_line_leader (Boolean) — ラインリーダー
+├── exp_painting (Boolean) — 塗装
+├── exp_other (Text) — その他
+│
+├── ===== お弁当 (LUNCH OPTIONS) =====
+├── bento_lunch_dinner (String[10]) — 昼/夜
+├── bento_lunch_only (String[10]) — 昼のみ
+├── bento_dinner_only (String[10]) — 夜のみ
+├── bento_bring_own (String[10]) — 持参
+├── lunch_preference (String[50]) — 社内食堂
+│
+├── ===== 通勤 (COMMUTE) =====
+├── commute_method (String[50]) — 通勤方法 (carro, bicicleta, tren, etc.)
+├── commute_time_oneway (Integer) — 通勤片道時間 (minutos)
+│
+├── ===== 面接・検査 (INTERVIEW & TESTS) =====
+├── interview_result (Enum: InterviewResult) — 面接結果
+│   ├── PASSED — 👍 合格
+│   ├── FAILED — 👎 不合格
+│   └── PENDING — ⏳ 保留
+├── antigen_test_kit (String[20]) — 簡易抗原検査キット
+├── antigen_test_date (Date) — 簡易抗原検査実施日
+├── covid_vaccine_status (String[50]) — コロナワクチン予防接種状態
+│
+├── ===== 語学 (LANGUAGE SKILLS) =====
+├── language_skill_exists (String[10]) — 語学スキル有無
+├── language_skill_1 (String[100]) — 語学スキル1
+├── language_skill_2 (String[100]) — 語学スキル2
+│
+├── ===== 日本語能力 (JAPANESE LANGUAGE ABILITY) =====
+├── japanese_qualification (String[50]) — 日本語能力資格
+├── japanese_level (String[10]) — 日本語能力レベル (N1-N5)
+├── jlpt_taken (String[10]) — 能力試験受験有無
+├── jlpt_date (Date) — 能力試験受験日付
+├── jlpt_score (Integer) — 能力試験点数
+├── jlpt_scheduled (String[30]) — 受験予定
+│
+├── ===== 学歴 (EDUCATION) =====
+├── major (String[100]) — 専攻
+│
+├── ===== 身体情報 (PHYSICAL INFO) =====
+├── height (Float) — 身長(cm)
+├── weight (Float) — 体重(kg)
+├── clothing_size (String[10]) — 服のサイズ (S/M/L/XL/XXL)
+├── waist (Integer) — ウエスト(cm)
+├── shoe_size (Float) — 靴サイズ(cm)
+├── blood_type (String[5]) — 血液型 (A/B/O/AB)
+├── vision_right (Float) — 視力(右)
+├── vision_left (Float) — 視力(左)
+├── dominant_hand (String[10]) — 利き腕 (右/左/両方)
+├── allergy_exists (String[10]) — アレルギー有無
+├── glasses (String[100]) — メガネ・コンタクト使用
+│
+├── ===== 読み書き能力 (READING & WRITING) =====
+├── listening_level (String[20]) — 聞く
+├── speaking_level (String[20]) — 話す
+├── read_katakana (String[20]) — 読む カタカナ
+├── read_hiragana (String[20]) — 読む ひらがな
+├── read_kanji (String[20]) — 読む 漢字
+├── write_katakana (String[20]) — 書く カタカナ
+├── write_hiragana (String[20]) — 書く ひらがな
+├── write_kanji (String[20]) — 書く 漢字
+├── can_speak (String[20]) — 会話ができる
+├── can_understand (String[20]) — 会話が理解できる
+├── can_read_kana (String[20]) — ひらがな・カタカナ読める
+├── can_write_kana (String[20]) — ひらがな・カタカナ書ける
+│
+├── ===== 緊急連絡先 (EMERGENCY CONTACT) =====
+├── emergency_contact_name (String[100]) — 緊急連絡先 氏名
+├── emergency_contact_relation (String[50]) — 緊急連絡先 続柄
+├── emergency_contact_phone (String[20]) — 緊急連絡先 電話番号
+│
+├── ===== 作業用品 (WORK EQUIPMENT) =====
+├── safety_shoes (String[10]) — 安全靴
+│
+├── ===== OCR =====
+├── ocr_notes (Text) — OCR処理メモ (notas del procesamiento OCR)
+│
+├── ===== STATUS & AUDIT =====
+├── status (String[20], default="pending")
+│   CandidateStatus (Enum):
+│   ├── PENDING — 保留中 (esperando revisión)
+│   ├── APPROVED — 承認済 (aprobado, listo para 入社届け)
+│   ├── REJECTED — 却下 (rechazado)
+│   └── HIRED — 採用済 (ya es empleado)
+├── approved_by (FK → User) — Quién aprobó
+├── approved_at (DateTime) — Cuándo fue aprobado
+├── created_at (DateTime, auto)
+├── updated_at (DateTime, auto)
+│
+└── Relaciones:
+    ├── documents → Document[] (1:N) — Documentos adjuntos
+    ├── form_submissions → CandidateForm[] (1:N) — Snapshots JSON de formularios
+    ├── employees → Employee[] (1:N via rirekisho_id) — Empleados creados
+    └── requests → Request[] (1:N) — Solicitudes (入社連絡票, etc.)
+```
+
+---
+
+### 3. CANDIDATE FORM (候補者フォーム) — Snapshots de Formularios
+
+```
+Modelo: CandidateForm
+├── id (Integer, PK)
+├── candidate_id (FK → Candidate, nullable)
+├── rirekisho_id (String[20])
+├── applicant_id (String[50])
+├── form_data (JSON, NOT NULL) — Snapshot completo del formulario
+├── photo_data_url (Text) — Foto Base64 del momento del envío
+├── azure_metadata (JSON) — Metadata del procesamiento OCR de Azure
+├── created_at (DateTime)
+└── updated_at (DateTime)
+
+★ Propósito: Guardar versiones crudas de formularios antes del procesamiento.
+  Útil para auditoría y para corregir errores de OCR.
+```
+
+---
+
+### 4. FACTORY (工場/派遣先) — Fábricas y Empresas Cliente
+
+```
+Modelo: Factory (SoftDelete)
+├── id (Integer, PK)
+├── factory_id (String[200], unique, NOT NULL) — ID compuesto: "CompanyName__PlantName"
+├── company_name (String[100]) — 企業名 (ej: "トヨタ自動車")
+├── plant_name (String[100]) — 工場名 (ej: "岡山工場")
+├── name (String[100], NOT NULL) — Nombre completo display
+├── address (Text) — 所在地
+├── phone (String[20]) — 電話番号
+├── contact_person (String[100]) — 担当者名
+├── config (JSON) — Configuración específica de la fábrica
+├── is_active (Boolean, default=true)
+├── created_at (DateTime)
+└── updated_at (DateTime)
+
+Relaciones:
+├── employees → Employee[] — Empleados (派遣社員) asignados
+└── contract_workers → ContractWorker[] — Trabajadores por contrato (請負)
+
+★ El factory_id compuesto "Company__Plant" permite que una empresa
+  tenga múltiples plantas/fábricas.
+```
+
+---
+
+### 5. EMPLOYEE BASE MIXIN — Campos Compartidos (派遣社員 y 請負)
+
+```
+Mixin: EmployeeBaseMixin (~60 campos compartidos)
+├── id (Integer, PK)
+├── hakenmoto_id (Integer, unique, NOT NULL) — ID interno auto-generado
+├── rirekisho_id (String[20], FK → Candidate.rirekisho_id)
+├── factory_id (String[200], FK → Factory.factory_id)
+├── company_name (String[100]) — 企業名 (denormalizado)
+├── plant_name (String[100]) — 工場名 (denormalizado)
+├── hakensaki_shain_id (String[50]) — ID de trabajador en empresa destino
+│
+├── ===== INFORMACIÓN PERSONAL =====
+├── full_name_kanji (String[100], NOT NULL) — 氏名
+├── full_name_kana (String[100]) — フリガナ
+├── photo_url (String[255])
+├── photo_data_url (Text) — Base64 sincronizado desde Candidate
+├── date_of_birth (Date) — 生年月日
+├── gender (String[10]) — 性別
+├── nationality (String[50]) — 国籍
+├── zairyu_card_number (String[50]) — 在留カード番号
+├── zairyu_expire_date (Date) — 在留期限
+│
+├── ===== CONTACTO =====
+├── address (Text) — 住所
+├── phone (String[20])
+├── email (String[100])
+├── emergency_contact_name (String[100]) — 緊急連絡先氏名
+├── emergency_contact_phone (String[20])
+├── emergency_contact_relationship (String[50])
+│
+├── ===== EMPLEO (雇用情報) =====
+├── hire_date (Date) — 入社日
+├── current_hire_date (Date) — 現入社 (fecha de entrada a fábrica actual)
+├── jikyu (Integer) — 時給 (salario por hora en yen)
+├── jikyu_revision_date (Date) — 時給改定 (fecha revisión salarial)
+├── position (String[100]) — 役職
+├── contract_type (String[50]) — 契約種類
+│
+├── ===== ASIGNACIÓN (配属) =====
+├── assignment_location (String[200]) — 配属先
+├── assignment_line (String[200]) — 配属ライン (línea de producción)
+├── job_description (Text) — 仕事内容
+│
+├── ===== INFORMACIÓN FINANCIERA =====
+├── hourly_rate_charged (Integer) — 請求単価 (tarifa cobrada al cliente)
+├── billing_revision_date (Date) — 請求改定
+├── profit_difference (Integer) — 差額利益 (diferencia de ganancia)
+├── standard_compensation (Integer) — 標準報酬
+├── health_insurance (Integer) — 健康保険
+├── nursing_insurance (Integer) — 介護保険
+├── pension_insurance (Integer) — 厚生年金
+├── social_insurance_date (Date) — 社保加入日
+│
+├── ===== VISA Y DOCUMENTOS =====
+├── visa_type (String[50]) — ビザ種類
+├── license_type (String[100]) — 免許種類
+├── license_expire_date (Date) — 免許期限
+├── commute_method (String[50]) — 通勤方法
+├── optional_insurance_expire (Date) — 任意保険期限
+├── japanese_level (String[50]) — 日本語検定
+├── career_up_5years (Boolean) — キャリアアップ5年目
+├── entry_request_date (Date) — 入社依頼日
+├── notes (Text) — 備考
+├── postal_code (String[10])
+│
+├── ===== STATUS =====
+├── is_active (Boolean, default=true)
+├── termination_date (Date) — 退職日
+├── termination_reason (Text) — 退職理由
+├── created_at (DateTime)
+└── updated_at (DateTime)
+```
+
+---
+
+### 6. EMPLOYEE (派遣社員) — Trabajadores Despachados
+
+```
+Modelo: Employee (SoftDelete, hereda EmployeeBaseMixin)
+├── [Todos los campos del EmployeeBaseMixin]
+│
+├── ===== CAMPOS ESPECÍFICOS DE 派遣社員 =====
+├── current_address (String) — 現住所
+├── address_banchi (String) — 番地
+├── address_building (String) — 物件名
+│
+├── ===== GESTIÓN REGIONAL =====
+├── workplace_id (FK → Workplace) — 職場 actual
+├── current_region_id (FK → Region) — Región
+├── current_factory_id (FK → Factory) — Fábrica actual
+├── current_department_id (FK → Department) — Departamento
+├── residence_type_id (FK → ResidenceType) — Tipo de residencia
+├── residence_status_id (FK → ResidenceStatus) — Estado migratorio
+├── residence_address (Text)
+├── residence_monthly_cost (Integer)
+├── residence_start_date (Date)
+│
+├── ===== VISA ALERTS =====
+├── visa_renewal_alert (Boolean, default=false) — アラート ビザ更新
+├── visa_alert_days (Integer, default=30) — Días antes de alerta
+│
+├── ===== 有給休暇 (YUKYU - Paid Leave) =====
+├── yukyu_total (Integer, default=0) — 有給合計
+├── yukyu_used (Integer, default=0) — 使用済
+├── yukyu_remaining (Integer, default=0) — 残り
+│
+├── ===== STATUS =====
+├── current_status (String[20], default='active')
+│   ├── "active" — 稼働中
+│   ├── "terminated" — 退職済
+│   └── "suspended" — 休職中
+│
+└── Relaciones:
+    ├── candidate → Candidate (via rirekisho_id)
+    ├── factory → Factory
+    ├── workplace → Workplace
+    ├── documents → Document[]
+    ├── requests → Request[]
+    ├── contracts → Contract[]
+    ├── current_region → Region
+    ├── current_department → Department
+    ├── residence_type → ResidenceType
+    ├── residence_status → ResidenceStatus
+    ├── yukyu_balances → YukyuBalance[]
+    └── yukyu_requests → YukyuRequest[]
+```
+
+---
+
+### 7. CONTRACT WORKER (請負社員) — Trabajadores por Contrato
+
+```
+Modelo: ContractWorker (SoftDelete, hereda EmployeeBaseMixin)
+├── [Todos los campos del EmployeeBaseMixin]
+│
+├── ★ DIFERENCIA LEGAL CLAVE con Employee (派遣社員):
+│   - En 請負 NO hay 指揮命令関係 (relación de mando) con el cliente
+│   - La supervisión la hace NUESTRA empresa, no el cliente
+│   - Se cobra por resultado/proyecto, no necesariamente por hora
+│   - Si el cliente da instrucciones directas → 偽装請負 (ILEGAL)
+│
+└── Relaciones:
+    ├── factory → Factory
+    └── [No tiene workplace, region, yukyu, etc.]
+```
+
+---
+
+### 8. STAFF (スタッフ) — Personal Interno de Oficina
+
+```
+Modelo: Staff (SoftDelete)
+├── id (Integer, PK)
+├── staff_id (Integer, unique, NOT NULL)
+├── rirekisho_id (String[20], FK → Candidate.rirekisho_id)
+│
+├── full_name_kanji (String[100], NOT NULL)
+├── full_name_kana (String[100])
+├── photo_url / photo_data_url
+├── date_of_birth, gender, nationality
+├── address, phone, email
+├── emergency_contact_*
+├── postal_code
+│
+├── hire_date, position, department
+├── monthly_salary (Integer) — Salario mensual fijo (NO por hora)
+│
+├── Seguros sociales, yukyu, status...
+└── is_active, termination_date, notes
+```
+
+---
+
+### 9. REQUEST (申請) — Sistema de Solicitudes
+
+```
+Modelo: Request
+├── id (Integer, PK)
+├── hakenmoto_id (FK → Employee.hakenmoto_id, nullable)
+├── candidate_id (FK → Candidate.id, nullable) — Para 入社連絡票
+├── request_type (Enum: RequestType)
+│   ├── YUKYU — 有給休暇 (vacaciones pagadas)
+│   ├── HANKYU — 半休 (medio día)
+│   ├── IKKIKOKOKU — 一時帰国 (retorno temporal al país)
+│   ├── TAISHA — 退社 (renuncia)
+│   └── NYUUSHA — 入社連絡票 (formulario de ingreso laboral) ★
+│
+├── status (Enum: RequestStatus)
+│   ├── PENDING — 保留中
+│   ├── APPROVED — 承認済
+│   ├── REJECTED — 却下
+│   └── COMPLETED — 済 (usado para 入社連絡票 después de crear empleado)
+│
+├── start_date (Date, NOT NULL)
+├── end_date (Date, NOT NULL)
+├── total_days → Computed property: (end_date - start_date + 1)
+├── reason (Text) — Motivo
+├── notes (Text) — Notas
+│
+├── employee_data (JSONB, nullable) — ★ Para 入社連絡票: datos del empleado
+│   {
+│     "factory_id": "Company__Plant",
+│     "hire_date": "2025-11-20",
+│     "jikyu": 1500,
+│     "position": "Machine Operator",
+│     "contract_type": "正社員",
+│     "is_shatak": false,
+│     "apartment_id": null,
+│     "hakensaki_shain_id": "HS-001",
+│     "bank_name": "三菱UFJ銀行",
+│     "bank_account": "1234567890",
+│     "emergency_contact_name": "...",
+│     "emergency_contact_phone": "...",
+│     "created_by_user": "admin"
+│   }
+│
+├── approved_by (FK → User)
+├── approved_at (DateTime)
+├── created_at, updated_at
+│
+└── Relaciones:
+    ├── employee → Employee (via hakenmoto_id)
+    └── candidate → Candidate
+```
+
+---
+
+### 10. DOCUMENT (書類) — Documentos Adjuntos
+
+```
+Modelo: Document
+├── id (Integer, PK)
+├── candidate_id (FK → Candidate, nullable)
+├── employee_id (FK → Employee, nullable)
+├── document_type (Enum: DocumentType)
+│   ├── RIREKISHO — 履歴書 (currículum)
+│   ├── ZAIRYU_CARD — 在留カード (tarjeta de residencia)
+│   ├── LICENSE — 免許 (licencia)
+│   ├── CONTRACT — 契約書 (contrato)
+│   └── OTHER — その他
+│
+├── file_name (String[255], NOT NULL)
+├── file_path (String[500], NOT NULL) — Ruta al archivo
+├── file_size (Integer) — Tamaño en bytes
+├── mime_type (String[100])
+├── ocr_data (JSON) — Resultado del procesamiento OCR
+├── uploaded_at (DateTime, auto)
+└── uploaded_by (FK → User)
+```
+
+---
+
+### 11. CONTRACT (契約) — Contratos de Empleo
+
+```
+Modelo: Contract (SoftDelete)
+├── id (Integer, PK)
+├── employee_id (FK → Employee, NOT NULL)
+├── contract_type (String[50], NOT NULL) — 正社員/契約社員/パート
+├── contract_number (String[50], unique) — 契約番号
+├── start_date (Date, NOT NULL) — 契約開始日
+├── end_date (Date) — 契約終了日
+├── pdf_path (String[500]) — PDF del contrato generado
+├── signed (Boolean, default=false) — 署名済み
+├── signed_at (DateTime) — Fecha de firma
+├── signature_data (Text) — Firma Base64
+└── created_at (DateTime)
+```
+
+---
+
+### 12. MODELOS DE SOPORTE
+
+```
+Region — Regiones geográficas (愛知, 三重, etc.)
+Department — Departamentos organizacionales
+ResidenceType — Tipos de residencia
+ResidenceStatus — Estados migratorios/visa (con max_duration_months)
+Workplace — Ubicaciones de trabajo (Company + Location)
+SocialInsuranceRate — Tarifas de seguros sociales por rango de compensación
+SystemSettings — Configuración del sistema (key-value)
+PageVisibility — Control de visibilidad de páginas por rol
+RolePagePermission — Permisos de rol por página (RBAC)
+AuditLog — Log de auditoría general
+AdminAuditLog — Log de auditoría de administración
+```
+
+---
+
+## FLUJO DE TRABAJO COMPLETO — CANDIDATO A EMPLEADO
+
+Este es el flujo principal del sistema, paso a paso:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  FASE 1: REGISTRO DEL CANDIDATO                         │
+│                                                         │
+│  [PASO 1] Ingreso de Rirekisho (3 métodos posibles)     │
+│  ├─ A) Formulario manual web (50+ campos)               │
+│  ├─ B) OCR: Escanear documento con Azure OCR + AI       │
+│  │     └→ Se escanea foto del rirekisho                 │
+│  │     └→ Azure Computer Vision extrae texto             │
+│  │     └→ AI (Gemini/OpenAI/Claude) interpreta campos   │
+│  │     └→ Se muestra vista previa para corrección       │
+│  └─ C) Importación masiva CSV/Excel                     │
+│                                                         │
+│  Resultado: Se crea registro en tabla Candidate         │
+│  Status inicial: PENDING (保留中)                        │
+│  Se almacena foto como Base64 (photo_data_url)          │
+│  Se guarda snapshot en CandidateForm (form_data JSON)   │
+└─────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│  FASE 2: REVISIÓN Y ENTREVISTA                          │
+│                                                         │
+│  [PASO 2] Revisión del candidato por admin/HR           │
+│  ├─ Se revisan datos personales, documentos, fotos      │
+│  ├─ Se verifica 在留カード (tarjeta de residencia)       │
+│  ├─ Se revisan cualificaciones y experiencia            │
+│  └─ Se actualiza interview_result:                      │
+│     ├─ 👍 PASSED (合格) → Continúa al PASO 3           │
+│     ├─ 👎 FAILED (不合格) → Candidato rechazado        │
+│     └─ ⏳ PENDING (保留) → Pendiente de decisión        │
+│                                                         │
+│  [PASO 3] Decisión: Aprobar o Rechazar                  │
+│  ├─ APROBAR: status → APPROVED (承認済)                  │
+│  │   └→ Se crea automáticamente 入社連絡票               │
+│  │      (Request tipo NYUUSHA, status PENDING)           │
+│  │   └→ Se vincula request.candidate_id = candidate.id  │
+│  │                                                       │
+│  └─ RECHAZAR: status → REJECTED (却下)                   │
+│     └→ Se registra motivo de rechazo                     │
+│     └→ Candidato queda inactivo                          │
+└─────────────────────────────────────────────────────────┘
+                        │ (Si APPROVED)
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│  FASE 3: 入社届け (NYUSHA TODOKE) — FORMULARIO DE INGRESO│
+│                                                         │
+│  [PASO 4] Admin llena datos de empleo                   │
+│  PUT /api/requests/{id}/employee-data                   │
+│  ├─ factory_id → ¿A qué fábrica/empresa va?            │
+│  ├─ hire_date → Fecha de ingreso (no puede ser pasada)  │
+│  ├─ jikyu → 時給 (salario por hora: 800-5000 yen)      │
+│  ├─ position → Puesto de trabajo                        │
+│  ├─ contract_type → 正社員/契約社員/パート               │
+│  ├─ hakensaki_shain_id → ID en empresa destino          │
+│  ├─ bank_name, bank_account → Datos bancarios           │
+│  ├─ emergency_contact_* → Contacto de emergencia        │
+│  └─ Se almacena todo en request.employee_data (JSONB)   │
+│                                                         │
+│  Validaciones:                                           │
+│  ├─ Factory debe existir en la BD                        │
+│  ├─ hire_date no puede ser fecha pasada                  │
+│  ├─ jikyu debe estar entre 800 y 5000 yen               │
+│  └─ Request debe ser tipo NYUUSHA y status PENDING       │
+│                                                         │
+│  [PASO 5] Aprobación final del 入社連絡票                │
+│  POST /api/requests/{id}/approve-nyuusha                │
+│  ├─ Se valida que employee_data esté completo           │
+│  ├─ Se genera hakenmoto_id (auto-incremental)           │
+│  ├─ Se COPIA 40+ campos de Candidate → Employee:        │
+│  │   ├─ Datos personales (nombre, DOB, género, etc.)    │
+│  │   ├─ Contacto (email, phone, address)                │
+│  │   ├─ Inmigración (passport, zairyu card, visa)       │
+│  │   ├─ ★ photo_data_url SE COPIA al Employee          │
+│  │   └─ Datos de empleo (de employee_data JSON)         │
+│  │                                                       │
+│  ├─ Se COPIAN documentos de Candidate → Employee         │
+│  ├─ Candidate.status → HIRED (採用済)                    │
+│  ├─ Request.status → COMPLETED (済)                      │
+│  ├─ Se registra en Audit Trail                           │
+│  └─ Se envía notificación (email/LINE)                   │
+└─────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│  FASE 4: TIPO DE EMPLEADO                               │
+│                                                         │
+│  ¿Qué tipo de empleado se creó?                         │
+│                                                         │
+│  ┌── 派遣社員 (HAKEN SHAIN) ──────────────────────────┐│
+│  │ Tabla: employees                                   ││
+│  │ ├─ Tiene workplace, region, department              ││
+│  │ ├─ Tiene yukyu (有給休暇)                          ││
+│  │ ├─ Tiene visa alerts                               ││
+│  │ ├─ Tiene contracts (契約管理)                       ││
+│  │ ├─ El cliente da instrucciones de trabajo           ││
+│  │ └─ Se cobra por hora al cliente (billing_rate)     ││
+│  └──────────────────────────────────────────────────────┘│
+│                                                         │
+│  ┌── 請負 (UKEOI) ───────────────────────────────────┐ │
+│  │ Tabla: contract_workers                            │ │
+│  │ ├─ Solo hereda campos base (EmployeeBaseMixin)     │ │
+│  │ ├─ NO tiene workplace, region ni yukyu avanzado     │ │
+│  │ ├─ ★ La supervisión es INTERNA (nuestra empresa)  │ │
+│  │ ├─ ★ El cliente NO da instrucciones directas      │ │
+│  │ ├─ ★ Si el cliente supervisa → 偽装請負 (ILEGAL)  │ │
+│  │ └─ Se cobra por proyecto/resultado                 │ │
+│  └──────────────────────────────────────────────────────┘│
+│                                                         │
+│  ┌── スタッフ (STAFF) ──────────────────────────────┐  │
+│  │ Tabla: staff                                      │  │
+│  │ ├─ Personal interno de oficina                    │  │
+│  │ ├─ Salario mensual fijo (no por hora)            │  │
+│  │ └─ No se asigna a fábricas externas              │  │
+│  └────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│  FASE 5: GESTIÓN DEL EMPLEADO ACTIVO                    │
+│                                                         │
+│  Una vez creado, el empleado:                            │
+│  ├─ Puede ser asignado a diferentes fábricas            │
+│  ├─ Se le gestionan visas y documentos con alertas      │
+│  ├─ Puede solicitar 有給休暇 (vacaciones pagadas)       │
+│  ├─ Puede solicitar 一時帰国 (retorno temporal)         │
+│  ├─ Puede solicitar 退社 (renuncia)                     │
+│  ├─ Se le generan contratos (PDF con firma digital)     │
+│  └─ Se le rastrea en el audit trail                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## SISTEMA DE FOTOS — ESPECIFICACIÓN COMPLETA
+
+### Requisitos de Foto para Rirekisho Japonés
+
+```
+- Tamaño estándar: 縦4cm × 横3cm (vertical 4cm × horizontal 3cm)
+- Aspecto ratio: 4:3 (vertical)
+- Fondo: blanco, azul claro, o liso
+- Desde el pecho hacia arriba (胸から上)
+- Tomada en los últimos 3 meses
+- Resolución mínima: 600×800 pixels
+- Formato: JPEG
+- Almacenamiento: Base64 data URL en campo photo_data_url
+```
+
+### Flujo de Fotos
+
+```
+1. UPLOAD en Candidato
+   └→ El usuario sube foto original (cualquier formato)
+   └→ Se muestra herramienta de crop interactivo (react-easy-crop)
+   └→ Aspect ratio forzado: 3:4 (ancho:alto)
+   └→ Se convierte a Base64 data URL
+   └→ Se almacena en candidate.photo_data_url
+
+2. TRANSFERENCIA: Candidate → Employee
+   └→ Al aprobar 入社連絡票, la foto se COPIA (no referencia)
+   └→ employee.photo_data_url = candidate.photo_data_url
+   └→ Son copias independientes (cambiar una no afecta la otra)
+
+3. TRANSFERENCIA: Candidate → ContractWorker
+   └→ Mismo mecanismo que Employee
+
+4. TRANSFERENCIA: Candidate → Staff
+   └→ Mismo mecanismo
+
+5. DISPLAY
+   └→ En listados: thumbnail (generado en frontend)
+   └→ En detalle: tamaño completo
+   └→ En impresión: 3cm×4cm
+
+6. OCR DE FOTOS
+   └→ Cuando se escanea un rirekisho con OCR
+   └→ Se detecta la zona de la foto
+   └→ Se extrae y almacena como photo_data_url
+   └→ Face detection disponible para validación
+```
+
+### API de Fotos
+
+```
+GET  /api/candidates/madre/photos/{entity_type}/{entity_id}
+PUT  /api/candidates/madre/photos/{entity_type}/{entity_id}
+
+entity_type: "candidate" | "haken" | "ukeoi" | "staff"
+
+La foto se envía/recibe como Base64 data URL:
+"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ..."
+```
+
+---
+
+## OCR E INTELIGENCIA ARTIFICIAL
+
+### Servicio de OCR Híbrido
+
+```
+backend/app/services/hybrid_ocr_service.py
+
+Proveedores OCR (con fallback automático):
+1. Azure Computer Vision — Proveedor principal
+2. Gemini Vision — Backup via AI Gateway
+3. OpenAI Vision — Backup secundario
+
+Flujo:
+1. Se sube imagen del rirekisho (foto o escaneo)
+2. Azure CV extrae texto crudo con coordenadas
+3. AI interpreta los campos del rirekisho:
+   - Mapea texto a los 50+ campos del modelo Candidate
+   - Maneja diferentes formatos de rirekisho
+   - Procesa kanji, hiragana, katakana, romaji
+4. Se presenta vista previa para que el usuario corrija
+5. Se almacena resultado en CandidateForm.form_data
+6. Se crea/actualiza Candidate con datos procesados
+```
+
+### AI Gateway
+
+```
+backend/app/services/ai_gateway.py
+
+Multi-proveedor con circuit breaker:
+├── Gemini (Google) — Proveedor por defecto
+├── OpenAI — Alternativa
+├── Claude (Anthropic) — Alternativa
+└── Local CLI — Fallback local
+
+Usos:
+- Procesamiento de rirekisho por OCR
+- Interpretación de campos japoneses
+- Generación de código
+- Asistencia general AI
+```
+
+### Face Detection
+
+```
+backend/app/services/face_detection_service.py
+
+- Detecta si la foto tiene un rostro válido
+- Valida formato 3x4cm para rirekisho japonés
+- Rechaza fotos sin rostro visible
+```
+
+---
+
+## SISTEMA DE PERMISOS (RBAC)
+
+### Jerarquía de Roles
+
+```
+SUPER_ADMIN (全権限)
+    └─ ADMIN (管理者)
+        ├─ KEITOSAN (経理管理 - Finanzas)
+        ├─ TANTOSHA (担当者 - HR/Operaciones)
+        └─ COORDINATOR (コーディネーター)
+            └─ KANRININSHA (管理人者 - Personal de oficina)
+                └─ EMPLOYEE (派遣社員 - Trabajador despachado)
+                    └─ CONTRACT_WORKER (請負 - Trabajador por contrato)
+```
+
+### Control de Acceso
+
+```
+1. Page Visibility (PageVisibility)
+   - Control de qué páginas están habilitadas/bajo construcción
+   - Se desactivan mostrando "このページは準備中です" (Under Construction)
+
+2. Role Page Permissions (RolePagePermission)
+   - Cada rol puede ver/no ver cada página
+   - ADMIN ve todo
+   - EMPLOYEE solo ve su perfil y solicitudes
+   - KEITOSAN ve módulos financieros
+
+3. Frontend Guards
+   - use-page-permission.ts → Verifica acceso por rol
+   - use-cached-page-permission.ts → Cache para rendimiento
+   - use-page-visibility.ts → Verifica si página está habilitada
+
+4. Backend Guards
+   - auth_service.require_role("admin") → Decorador de endpoints
+   - auth_service.get_current_active_user → Middleware JWT
+```
+
+---
+
+## SISTEMA DE AUDITORÍA
+
+```
+Dos tablas de auditoría:
+
+1. AuditLog (General)
+   - Rastrea: user_id, action, table_name, record_id
+   - Almacena: old_values, new_values (JSON)
+   - Incluye: ip_address, user_agent
+
+2. AdminAuditLog (Administración)
+   - Rastrea: cambios de permisos, configuración, operaciones bulk
+   - action_type: PAGE_VISIBILITY_CHANGE, ROLE_PERMISSION_CHANGE, etc.
+   - resource_type: PAGE, ROLE, SYSTEM, USER, PERMISSION
+   - Incluye: previous_value, new_value, description
+
+Eventos auditados:
+├── Creación/modificación de candidatos
+├── Aprobación/rechazo de candidatos
+├── Creación de empleados (入社連絡票)
+├── Cambios de permisos de rol
+├── Cambios de visibilidad de páginas
+├── Operaciones de importación/exportación
+├── Acciones de login/logout
+└── Cambios de configuración del sistema
+```
+
+---
+
+## IMPORTACIÓN Y EXPORTACIÓN
+
+### Importación Masiva
+
+```
+POST /api/import-export/import
+
+Formatos soportados: CSV (UTF-8 BOM), Excel (.xlsx)
+
+Proceso:
+1. Upload del archivo
+2. Detección automática de columnas japonesas
+3. Mapeo de columnas → campos del modelo
+4. Validación con resumen de errores
+5. Importación con barra de progreso
+6. Reporte de resultados (creados/actualizados/errores)
+
+Importación resiliente (/api/resilient-import/):
+- Circuit breaker para prevenir cascadas de errores
+- Checkpoints para recovery
+- Idempotency guard para evitar duplicados
+- Retry con backoff exponencial
+```
+
+### Exportación
+
+```
+GET /api/import-export/export
+
+Formatos: CSV, Excel, JSON
+Entidades: candidates, employees, contract_workers, factories
+Filtros: por status, fecha, fábrica, etc.
+```
+
+---
+
+## PÁGINAS Y VISTAS DE LA APLICACIÓN
+
+### Frontend (Next.js App Router)
+
+```
+/login — Página de login (JWT + CSRF)
+
+/dashboard — Dashboard principal con estadísticas
+├── /dashboard/candidates — Lista y gestión de candidatos
+├── /dashboard/employees — Lista y gestión de empleados (派遣社員)
+├── /dashboard/factories — Lista y gestión de fábricas/empresas
+│
+├── /dashboard/yukyu — Gestión de vacaciones pagadas (有給休暇)
+├── /dashboard/yukyu-requests — Solicitudes de vacaciones
+├── /dashboard/yukyu-history — Historial de vacaciones
+├── /dashboard/yukyu-reports — Reportes de vacaciones
+│
+├── /dashboard/requests — Gestión de solicitudes (NYUUSHA, TAISHA, etc.)
+│
+├── /dashboard/reports — Generación de reportes
+├── /dashboard/admin — Panel de administración
+├── /dashboard/database-management — Operaciones de BD
+├── /dashboard/monitoring — Monitoreo del sistema
+├── /dashboard/settings — Configuración de usuario
+├── /dashboard/profile — Perfil de usuario
+├── /dashboard/themes — Personalización de tema
+├── /dashboard/design-system — Referencia del design system
+├── /dashboard/help — Documentación de ayuda
+├── /dashboard/privacy — Configuración de privacidad
+└── /dashboard/terms — Términos de servicio
+```
+
+---
+
+## ENDPOINTS API PRINCIPALES
+
+### Autenticación
+
+```
+POST /api/auth/login — Login (devuelve JWT + CSRF cookie)
+GET  /api/auth/me — Usuario actual
+POST /api/auth/refresh — Refresh token
+POST /api/auth/logout — Logout
+```
+
+### Candidatos
+
+```
+GET    /api/candidates/ — Listar candidatos
+POST   /api/candidates/ — Crear candidato
+GET    /api/candidates/{id} — Obtener candidato
+PUT    /api/candidates/{id} — Actualizar candidato
+DELETE /api/candidates/{id} — Eliminar candidato (soft delete)
+POST   /api/candidates/forms — Guardar formulario crudo (OCR)
+```
+
+### Empleados
+
+```
+GET    /api/employees/ — Listar empleados
+POST   /api/employees/ — Crear empleado (desde candidato aprobado)
+GET    /api/employees/{id} — Obtener empleado
+PUT    /api/employees/{id} — Actualizar empleado
+DELETE /api/employees/{id} — Eliminar empleado (soft delete)
+```
+
+### Requests (Solicitudes)
+
+```
+GET    /api/requests/ — Listar solicitudes
+POST   /api/requests/ — Crear solicitud
+GET    /api/requests/{id} — Obtener solicitud
+PUT    /api/requests/{id} — Actualizar solicitud
+POST   /api/requests/{id}/review — Aprobar/rechazar
+POST   /api/requests/{id}/approve — Aprobar (shortcut)
+POST   /api/requests/{id}/reject — Rechazar (shortcut)
+DELETE /api/requests/{id} — Eliminar solicitud
+
+★ 入社連絡票 Endpoints:
+PUT    /api/requests/{id}/employee-data — Llenar datos de empleo
+POST   /api/requests/{id}/approve-nyuusha — Aprobar y crear empleado
+```
+
+### Fábricas
+
+```
+GET    /api/factories/ — Listar fábricas
+POST   /api/factories/ — Crear fábrica
+GET    /api/factories/{id} — Obtener fábrica
+PUT    /api/factories/{id} — Actualizar fábrica
+DELETE /api/factories/{id} — Eliminar fábrica
+```
+
+### AI & OCR
+
+```
+POST /api/ai-agents/process — Procesar con IA
+POST /api/azure-ocr/scan — Escanear documento con Azure OCR
+GET  /api/ai-agents/usage — Uso de AI por usuario
+```
+
+### Admin & Sistema
+
+```
+GET/PUT /api/pages/visibility — Control de visibilidad de páginas
+GET/PUT /api/role-permissions — Gestión de permisos por rol
+GET     /api/audit/ — Logs de auditoría
+GET     /api/monitoring/ — Estado del sistema
+GET     /api/settings/ — Configuración del sistema
+```
+
+---
+
+## FUNCIONALIDADES CLAVE A IMPLEMENTAR
+
+### 1. Búsqueda Avanzada Japonesa
+
+```
+- Búsqueda por nombre (kanji, furigana, romaji simultánea)
+- Filtro por status (pending, approved, rejected, hired)
+- Filtro por factory/empresa
+- Filtro por nacionalidad
+- Filtro por tipo de visa
+- Full-text search con pg_trgm para japonés
+- Ordenamiento por fecha, nombre, ID
+```
+
+### 2. Alertas Automáticas
+
+```
+- Visa por vencer (30, 14, 7 días antes)
+- Pasaporte por vencer
+- Licencia de conducir por vencer
+- Candidatos pendientes > 7 días sin revisar
+- Contratos por vencer
+```
+
+### 3. Importación OCR Inteligente
+
+```
+- Escanear rirekisho en papel → datos estructurados
+- Detección automática de idioma (JP/EN)
+- Corrección asistida por IA
+- Face detection para validar foto
+- Vista previa antes de confirmar
+```
+
+### 4. Generación de Documentos
+
+```
+- PDF de rirekisho formato japonés (A4)
+- PDF de contrato laboral
+- Exportación CSV/Excel de listas
+- Reportes de auditoría
+```
+
+### 5. Notificaciones
+
+```
+- Email (SMTP)
+- LINE Messaging API
+- Notificaciones in-app (toast)
+```
+
+---
+
+## COMPARACIÓN CON PROMPT_RIREKISHO_APP.md
+
+### Diferencias Principales
+
+| Aspecto | PROMPT_RIREKISHO_APP.md | Esta App (UNS-ClaudeJP) |
+|---------|------------------------|-------------------------|
+| **Stack** | Next.js API Routes o Django, Prisma, NextAuth | FastAPI + Next.js separados, SQLAlchemy, JWT propio |
+| **Modelo Rirekisho** | Modelo separado con relaciones 1:N (education, work, qualifications) | **Modelo plano**: todos los campos en una tabla `candidates` (50+ columnas) |
+| **Rirekisho → Candidate** | Son modelos separados. Rirekisho se importa a Candidate | **Son la misma tabla**. Candidate = Rirekisho |
+| **Fotos** | 3 versiones: original, cropped, thumbnail en filesystem | **Base64 data URL** en campo de texto (photo_data_url) |
+| **HakenshainAssignment** | Modelo separado con 40+ campos de contrato y compliance | **Employee** table directa con EmployeeBaseMixin |
+| **UkeoiAssignment** | Modelo separado vinculado a projects | **ContractWorker** table con mismos campos base |
+| **SkillSheet** | Modelo separado anonimizado para clientes | **No implementado** (oportunidad de mejora) |
+| **入社 Workflow** | No detallado explícitamente | **Workflow completo** con 3 pasos: candidato aprobado → employee_data → approve-nyuusha |
+| **Compliance Legal** | Muy detallado: 管理台帳, 抵触日 (3 años), Art.37, Art.42 | **No implementado** (oportunidad de mejora) |
+| **Familia** | No detallado | **5 miembros** con name, relation, age, residence, dependent |
+| **Experiencia laboral** | WorkHistory como modelo separado con detalles | **Checkboxes** de experiencia + texto libre |
+| **Info física** | No incluido | **Muy detallado**: height, weight, blood_type, vision, shoe_size, etc. |
+| **Idiomas** | japanese_level simple | **Detallado**: reading, writing, speaking, JLPT, listening, cada script |
+| **Bento/Lunch** | No incluido | **Incluido**: 4 opciones de bento |
+| **OCR** | No incluido | **Azure OCR + AI Gateway** multi-proveedor |
+| **DB Mother** | No incluido | **UNS-DBUNIX** integration con fallback |
+| **RBAC** | 4 roles simples | **8 roles** con jerarquía y page visibility |
+| **Auditoría** | Activity log simple | **Doble audit trail** (general + admin) |
+| **Resilience** | No incluido | **Circuit breakers, retry, idempotency, checkpoints** |
+
+### ¿Qué tiene PROMPT_RIREKISHO_APP que esta app NO tiene?
+
+1. **SkillSheet** anonimizado (スキルシート) — Documento para enviar a clientes sin datos personales
+2. **Compliance legal detallado** — 派遣元管理台帳, 抵触日 (3 años), 偽装請負 checks
+3. **Job Orders / Matching** — Sistema de posiciones abiertas y matching candidato-posición
+4. **Historial educativo y laboral** como modelos separados con detalle
+5. **Generación de PDF** formato rirekisho japonés estándar (A3 → A4)
+6. **Validación de código postal** con auto-fill de dirección (zipcloud API)
+7. **Conversión de era japonesa** (和暦 ↔ 西暦) como utilidad
+8. **Renovación de contratos** como modelo separado
+
+### ¿Qué tiene esta app que PROMPT_RIREKISHO_APP NO tiene?
+
+1. **OCR + AI Processing** — Escaneo automático de rirekisho
+2. **Face Detection** — Validación de fotos
+3. **Info física detallada** — height, weight, shoe_size, blood_type, vision, etc.
+4. **Bento/Lunch options** — Preferencias de comida
+5. **8 roles** con jerarquía vs 4 roles simples
+6. **Doble audit trail** — General + Admin
+7. **Resilience patterns** — Circuit breaker, retry, idempotency
+8. **OpenTelemetry** — Telemetría y tracing distribuido
+9. **BD Mother integration** — Sincronización con base de datos externa
+10. **入社連絡票 workflow** — Proceso detallado de 3 pasos
+
+---
+
+## RECOMENDACIONES PARA LA NUEVA APP
+
+Para construir una app **mejor que ambas**, combinar lo mejor de cada una:
+
+### De PROMPT_RIREKISHO_APP.md, tomar:
+- [ ] Modelos separados para EducationHistory, WorkHistory, Qualification (más flexible que campos planos)
+- [ ] SkillSheet anonimizado (requerido por ley 労働者派遣法26条7項)
+- [ ] Compliance legal: 管理台帳, 抵触日, 偽装請負 checks
+- [ ] Job Orders y sistema de Matching
+- [ ] Generación PDF formato rirekisho japonés
+- [ ] Validación de 〒 postal code con auto-fill
+- [ ] Conversión 和暦 (era japonesa)
+- [ ] Renovación de contratos como modelo separado
+
+### De UNS-ClaudeJP, tomar:
+- [ ] OCR + AI multi-proveedor con fallback
+- [ ] Face Detection para fotos
+- [ ] 入社連絡票 workflow (3 pasos)
+- [ ] Info física detallada y preferencias de bento
+- [ ] RBAC con 8 roles jerárquicos
+- [ ] Doble audit trail
+- [ ] Resilience patterns (circuit breaker, retry, idempotency)
+- [ ] OpenTelemetry observability
+- [ ] Sync con BD externa
+
+### Mejoras adicionales sugeridas:
+- [ ] **Rirekisho como modelo separado** con versioning (candidato puede tener múltiples rirekisho)
+- [ ] **Notificaciones real-time** (WebSocket) además de email/LINE
+- [ ] **Calendar view** para visualizar disponibilidad de trabajadores
+- [ ] **Mobile-first** responsive design
+- [ ] **i18n completo** (日本語/English/Español) con next-intl
+- [ ] **Generación automática de contratos** con plantillas PDF
+- [ ] **Dashboard KPIs** (tasa de contratación, tiempo promedio de proceso, etc.)
+- [ ] **API versioning** para compatibilidad forward
+
+---
+
+## INSTRUCCIONES PARA LA IA QUE CONSTRUYA LA APP
+
+### Fase 1: Setup del Proyecto
+```
+1. Crear proyecto con Next.js 16+ (App Router) + TypeScript + Tailwind + shadcn/ui
+2. Crear backend con FastAPI + SQLAlchemy + Alembic
+3. Configurar PostgreSQL con encoding UTF-8 + locale ja_JP
+4. Configurar Docker Compose con todos los servicios
+5. Implementar autenticación JWT + CSRF
+6. Crear layout base con sidebar navigation
+```
+
+### Fase 2: Modelos y Base de Datos
+```
+1. Definir todos los modelos (User, Candidate, Employee, ContractWorker, etc.)
+2. Crear Rirekisho como modelo separado con relaciones 1:N
+3. Crear modelos de EducationHistory, WorkHistory, Qualification
+4. Implementar EmployeeBaseMixin para campos compartidos
+5. Crear migraciones con Alembic
+6. Seed data para desarrollo
+```
+
+### Fase 3: Rirekisho + Candidatos
+```
+1. Formulario completo de rirekisho (50+ campos)
+2. Upload y crop de foto (3x4cm japonés)
+3. OCR con Azure Computer Vision + AI Gateway
+4. Importación masiva CSV/Excel
+5. Vista de listado con búsqueda avanzada japonesa
+6. Detalle del candidato con tabs
+```
+
+### Fase 4: Workflow de Contratación
+```
+1. Revisión y entrevista (thumbs up/down)
+2. Aprobación/rechazo de candidatos
+3. 入社連絡票 (3 pasos: crear → llenar datos → aprobar)
+4. Creación automática de Employee/ContractWorker/Staff
+5. Copia de foto y documentos
+6. Audit trail completo
+```
+
+### Fase 5: Gestión de Empleados
+```
+1. CRUD completo de empleados (haken + ukeoi + staff)
+2. Asignación a fábricas/empresas
+3. Gestión de contratos
+4. Sistema de solicitudes (yukyu, taisha, ikkikokoku)
+5. Alertas de visa y documentos
+6. RBAC con 8 roles
+```
+
+### Fase 6: Funcionalidades Transversales
+```
+1. Dashboard con estadísticas y KPIs
+2. Reportes y exportación (CSV, Excel, PDF)
+3. Notificaciones (email, LINE, in-app)
+4. Observability (OpenTelemetry, Grafana, Prometheus)
+5. Resilience patterns (circuit breaker, retry)
+6. Compliance legal (管理台帳, 抵触日)
+```
+
+---
+
+## NOTAS TÉCNICAS IMPORTANTES
+
+### Soporte de Caracteres Japoneses
+```
+- PostgreSQL: encoding UTF8, LC_COLLATE=ja_JP.UTF-8
+- Backend: all strings UTF-8, Pydantic models with proper validation
+- Frontend: lang="ja" in HTML, fuentes japonesas (Noto Sans JP)
+- CSV import: detectar BOM UTF-8 automáticamente
+- PDF: embeber fuentes japonesas
+- Búsqueda: pg_trgm para similitud en kana/kanji
+```
+
+### Seguridad
+```
+- JWT tokens (HS256) con expiración de 8 horas
+- CSRF protection (Double-Submit Cookie Pattern)
+- Passwords: BCrypt hash
+- Datos sensibles: encriptados (AES-256) en BD
+  (passport, bank account, マイナンバー, etc.)
+- Rate limiting por usuario y endpoint
+- CORS configurado para dominio específico
+- Input validation en frontend (Zod) y backend (Pydantic)
+- Security audit logging (login attempts, permission changes)
+- bandit scan para vulnerabilidades en código Python
+```
+
+### Conversión 和暦 (Era Japonesa)
+```typescript
+function toWareki(date: Date): string {
+  const year = date.getFullYear();
+  if (year >= 2019) return `令和${year - 2018}年`;
+  if (year >= 1989) return `平成${year - 1988}年`;
+  if (year >= 1926) return `昭和${year - 1925}年`;
+  if (year >= 1912) return `大正${year - 1911}年`;
+  return `明治${year - 1867}年`;
+}
+```
+
+---
+
+**FIN DEL PROMPT — Este documento contiene la especificación completa para construir una aplicación de gestión HR para empresa de staffing japonesa, combinando lo mejor de dos sistemas existentes y añadiendo mejoras. Incluye: modelos de datos detallados, flujo de trabajo completo candidato→empleado, gestión de fotos, OCR, RBAC con 8 roles, doble audit trail, resilience patterns, y compliance legal japonés.**
