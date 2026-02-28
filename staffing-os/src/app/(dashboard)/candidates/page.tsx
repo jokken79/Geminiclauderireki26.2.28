@@ -1,15 +1,34 @@
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getCandidates } from "@/actions/candidates"
+import { CandidateList } from "@/components/candidates/candidate-list"
 
-export default function CandidatesPage() {
+export default async function CandidatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; status?: string; page?: string }>
+}) {
+  const params = await searchParams
+  const search = params.search || ""
+  const status = params.status as "PENDING" | "APPROVED" | "REJECTED" | "HIRED" | "WITHDRAWN" | undefined
+  const page = Number(params.page) || 1
+
+  const { candidates, total } = await getCandidates({
+    search: search || undefined,
+    status,
+    page,
+    pageSize: 20,
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">候補者一覧</h1>
-          <p className="text-sm text-muted-foreground">候補者の登録・管理</p>
+          <p className="text-sm text-muted-foreground">
+            全 {total} 件
+          </p>
         </div>
         <Link href="/candidates/new">
           <Button>
@@ -19,16 +38,13 @@ export default function CandidatesPage() {
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>候補者データ</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <p>候補者データはまだありません。「新規登録」から候補者を追加してください。</p>
-          </div>
-        </CardContent>
-      </Card>
+      <CandidateList
+        candidates={candidates}
+        total={total}
+        currentPage={page}
+        search={search}
+        status={status}
+      />
     </div>
   )
 }
