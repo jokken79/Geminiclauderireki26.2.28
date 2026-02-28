@@ -206,7 +206,7 @@ PostgreSQL 16+ with UTF-8 encoding and Japanese locale. Extensions `pg_trgm` and
 - **User** — Auth with bcrypt hashing, role-based (`UserRole` enum with 8 levels)
 - **Candidate** — Central model with 50+ fields (3 name writing systems: kanji, furigana, romaji)
 - **HakenshainAssignment** — Dispatched worker assignments with 抵触日 (3-year limit) tracking
-- **UkeoiAssignment** — Contract workers with mandatory `internalSupervisor` (偽装請負 prevention)
+- **UkeoiAssignment** — Contract workers with mandatory `internalSupervisor` (請負 prevention)
 - **ClientCompany** — Factories/companies where workers are dispatched
 - **Document** — File storage as Base64 with expiry tracking
 - **SkillSheet** — Anonymized candidate profiles (initials + age range only)
@@ -265,7 +265,7 @@ Use `requireRole(minRole)` for server-side guards in actions.
 
 Under Japan's Worker Dispatch Act (労働者派遣法), dispatched workers cannot stay at the same client for more than 3 years. The system auto-calculates this date and raises alerts at 180/90 days before expiry. See `src/lib/teishokubi.ts`.
 
-### 偽装請負 (Gisou-Ukeoi) Prevention
+### 請負 (Gisou-Ukeoi) Prevention
 
 Contract workers (請負) MUST have an internal supervisor (`internalSupervisor` field is required). This prevents illegal "disguised dispatch" where the client company directly supervises contract workers.
 
@@ -366,7 +366,7 @@ Nginx config includes security headers (X-Frame-Options, X-Content-Type-Options,
 
 1. **Japanese text handling**: This system deals extensively with Japanese text (kanji, katakana, hiragana). Always preserve correct encoding and display. Never truncate Japanese field values.
 
-2. **Legal compliance**: The 抵触日 (3-year limit) and 偽装請負 prevention are legally mandated. Never remove or weaken these checks.
+2. **Legal compliance**: The 抵触日 (3-year limit) and 請負 prevention are legally mandated. Never remove or weaken these checks.
 
 3. **Audit trail**: Every data mutation MUST be logged. Never bypass `AuditLog` creation in transactions.
 
