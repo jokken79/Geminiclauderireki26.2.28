@@ -1,0 +1,45 @@
+// Constantes del formulario Rirekisho (履歴書)
+// Copiadas y adaptadas del app de referencia 26.1.27VcopiaRirekishofromBueno
+
+export const LEVELS = {
+  speak: ["初級（挨拶程度）", "中級（日常会話・就職可）", "上級（通訳可）"],
+  listen: ["初級（挨拶程度）", "中級（日常会話・就職可）", "上級（通訳可）"],
+  readOptions: ["読める", "多少読める", "読めない"],
+  writeOptions: ["書ける", "多少書ける", "書けない"],
+  timeInJapan: [
+    ...[...Array(11).keys()].map(i => `${i + 1}ヶ月`),
+    ...[...Array(20).keys()].map(i => `${i + 1}年`),
+    "20年以上",
+  ],
+  residenceOptions: ["同居", "別居", "国内", "国外"],
+  commuteOptions: ["自家用車", "送迎", "原付電動機", "自転車", "歩き"],
+  visaOptions: [
+    "永住者",
+    "定住者",
+    "日本人の配偶者等",
+    "永住者の配偶者等",
+    "技術・人文知識・国際業務",
+    "技能",
+    "特定技能",
+    "経営・管理",
+    "高度専門職",
+    "家族滞在（要資格外活動許可）",
+    "留学（要資格外活動許可）",
+    "その他",
+  ],
+  licenseTypes: [
+    "普通自動車",
+    "中型自動車",
+    "大型自動車",
+    "準中型自動車",
+    "大型特殊自動車",
+    "小型特殊自動車",
+    "普通自動二輪車",
+    "大型自動二輪車",
+    "原動機付自転車",
+    "けん引",
+    "なし",
+  ],
+  uniformSizes: ["S", "M", "L", "LL", "3L", "4L", "5L", "XL", "XXL"],
+  bloodTypes: ["A型", "B型", "O型", "AB型", "不明"],
+} as const
