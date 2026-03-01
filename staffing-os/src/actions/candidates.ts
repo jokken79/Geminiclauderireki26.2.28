@@ -24,7 +24,6 @@ export async function createCandidate(data: CandidateFormData) {
     workHistory,
     qualifications,
     familyMembers,
-    education,
     birthDate,
     passportExpiry,
     residenceCardExpiry,
@@ -32,8 +31,32 @@ export async function createCandidate(data: CandidateFormData) {
     visaStatus,
     gender,
     photoDataUrl,
+    receptionDate,
+    licenseExpiry,
+    timeInJapan,
+    mobile,
+    address3,
+    uniformSize,
+    waist,
+    safetyShoes,
+    glasses,
+    carOwner,
+    insurance,
+    education,
+    major,
+    speakLevel,
+    listenLevel,
+    kanjiReadLevel,
+    kanjiWriteLevel,
+    hiraganaReadLevel,
+    hiraganaWriteLevel,
+    katakanaReadLevel,
+    katakanaWriteLevel,
+    commuteMethod,
+    commuteTimeMin,
+    lunchPref,
     ...candidateFields
-  } = parsed.data as CandidateFormData & { education?: { year: number; month: number; schoolName: string; faculty?: string; eventType: string }[] }
+  } = parsed.data
 
   try {
     const photoUrl = await saveBase64File(photoDataUrl, "candidates")
@@ -49,18 +72,55 @@ export async function createCandidate(data: CandidateFormData) {
           visaExpiry: visaExpiry ? new Date(visaExpiry) : null,
           visaStatus: visaStatus || null,
           gender: gender || null,
+          // Campos rirekisho nuevos
+          receptionDate: receptionDate ? new Date(receptionDate) : null,
+          timeInJapan: timeInJapan ?? null,
+          mobile: mobile ?? null,
+          address3: address3 ?? null,
+          uniformSize: uniformSize ?? null,
+          waist: waist ?? null,
+          safetyShoes: safetyShoes ?? null,
+          glasses: glasses ?? null,
+          carOwner: carOwner ?? null,
+          insurance: insurance ?? null,
+          licenseExpiry: licenseExpiry ? new Date(licenseExpiry) : null,
+          education: education ?? null,
+          major: major ?? null,
+          speakLevel: speakLevel ?? null,
+          listenLevel: listenLevel ?? null,
+          kanjiReadLevel: kanjiReadLevel ?? null,
+          kanjiWriteLevel: kanjiWriteLevel ?? null,
+          hiraganaReadLevel: hiraganaReadLevel ?? null,
+          hiraganaWriteLevel: hiraganaWriteLevel ?? null,
+          katakanaReadLevel: katakanaReadLevel ?? null,
+          katakanaWriteLevel: katakanaWriteLevel ?? null,
+          commuteMethod: commuteMethod ?? null,
+          commuteTimeMin: commuteTimeMin ?? null,
+          lunchPref: lunchPref ?? null,
           // Create related records
           workHistory: workHistory?.length
-            ? { create: workHistory.map((wh, i) => ({ ...wh, sortOrder: i })) }
+            ? {
+                create: workHistory.map((wh, i) => ({
+                  ...wh,
+                  sortOrder: i,
+                  hakenmoto: wh.hakenmoto ?? null,
+                  hakensaki: wh.hakensaki ?? null,
+                  workLocation: wh.workLocation ?? null,
+                })),
+              }
             : undefined,
           qualifications: qualifications?.length
             ? { create: qualifications.map((q, i) => ({ ...q, sortOrder: i })) }
             : undefined,
           familyMembers: familyMembers?.length
-            ? { create: familyMembers.map((fm, i) => ({ ...fm, sortOrder: i })) }
-            : undefined,
-          educationHistory: education?.length
-            ? { create: education.map((ed, i) => ({ ...ed, sortOrder: i })) }
+            ? {
+                create: familyMembers.map((fm, i) => ({
+                  ...fm,
+                  sortOrder: i,
+                  residence: fm.residence ?? null,
+                  dependent: fm.dependent ?? null,
+                })),
+              }
             : undefined,
         },
       })
@@ -203,7 +263,6 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
     workHistory,
     qualifications,
     familyMembers,
-    education,
     birthDate,
     passportExpiry,
     residenceCardExpiry,
@@ -211,8 +270,32 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
     visaStatus,
     gender,
     photoDataUrl,
+    receptionDate,
+    licenseExpiry,
+    timeInJapan,
+    mobile,
+    address3,
+    uniformSize,
+    waist,
+    safetyShoes,
+    glasses,
+    carOwner,
+    insurance,
+    education,
+    major,
+    speakLevel,
+    listenLevel,
+    kanjiReadLevel,
+    kanjiWriteLevel,
+    hiraganaReadLevel,
+    hiraganaWriteLevel,
+    katakanaReadLevel,
+    katakanaWriteLevel,
+    commuteMethod,
+    commuteTimeMin,
+    lunchPref,
     ...candidateFields
-  } = parsed.data as CandidateFormData & { education?: { year: number; month: number; schoolName: string; faculty?: string; eventType: string }[] }
+  } = parsed.data
 
   try {
     const photoUrl = await saveBase64File(photoDataUrl, "candidates")
@@ -243,17 +326,54 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
           visaStatus: visaStatus || null,
           gender: gender || null,
           version: { increment: 1 },
+          // Campos rirekisho nuevos
+          receptionDate: receptionDate ? new Date(receptionDate) : null,
+          timeInJapan: timeInJapan ?? null,
+          mobile: mobile ?? null,
+          address3: address3 ?? null,
+          uniformSize: uniformSize ?? null,
+          waist: waist ?? null,
+          safetyShoes: safetyShoes ?? null,
+          glasses: glasses ?? null,
+          carOwner: carOwner ?? null,
+          insurance: insurance ?? null,
+          licenseExpiry: licenseExpiry ? new Date(licenseExpiry) : null,
+          education: education ?? null,
+          major: major ?? null,
+          speakLevel: speakLevel ?? null,
+          listenLevel: listenLevel ?? null,
+          kanjiReadLevel: kanjiReadLevel ?? null,
+          kanjiWriteLevel: kanjiWriteLevel ?? null,
+          hiraganaReadLevel: hiraganaReadLevel ?? null,
+          hiraganaWriteLevel: hiraganaWriteLevel ?? null,
+          katakanaReadLevel: katakanaReadLevel ?? null,
+          katakanaWriteLevel: katakanaWriteLevel ?? null,
+          commuteMethod: commuteMethod ?? null,
+          commuteTimeMin: commuteTimeMin ?? null,
+          lunchPref: lunchPref ?? null,
           workHistory: workHistory?.length
-            ? { create: workHistory.map((wh, i) => ({ ...wh, sortOrder: i })) }
+            ? {
+                create: workHistory.map((wh, i) => ({
+                  ...wh,
+                  sortOrder: i,
+                  hakenmoto: wh.hakenmoto ?? null,
+                  hakensaki: wh.hakensaki ?? null,
+                  workLocation: wh.workLocation ?? null,
+                })),
+              }
             : undefined,
           qualifications: qualifications?.length
             ? { create: qualifications.map((q, i) => ({ ...q, sortOrder: i })) }
             : undefined,
           familyMembers: familyMembers?.length
-            ? { create: familyMembers.map((fm, i) => ({ ...fm, sortOrder: i })) }
-            : undefined,
-          educationHistory: education?.length
-            ? { create: education.map((ed, i) => ({ ...ed, sortOrder: i })) }
+            ? {
+                create: familyMembers.map((fm, i) => ({
+                  ...fm,
+                  sortOrder: i,
+                  residence: fm.residence ?? null,
+                  dependent: fm.dependent ?? null,
+                })),
+              }
             : undefined,
         },
       })
