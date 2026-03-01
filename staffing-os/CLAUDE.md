@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev          # Start dev server on port 3333 (not 3000)
+npm run dev          # Start dev server on port 3433 (not 3000)
 npm run build        # Production build
 npm run lint         # ESLint
 
@@ -21,7 +21,7 @@ npm run db:reset     # Reset database (destructive)
 
 No tests exist yet. Vitest is installed as a dev dependency but unconfigured.
 
-Environment requires PostgreSQL. Copy `.env.example` to `.env` and configure `DATABASE_URL`, `AUTH_SECRET`, and optional OCR provider keys. Note: `.env.example` shows `AUTH_URL` on port 3000 but dev server runs on **3333**.
+Environment requires PostgreSQL. Copy `.env.example` to `.env` and configure `DATABASE_URL`, `AUTH_SECRET`, and optional OCR provider keys. Note: `.env.example` shows `AUTH_URL` on port 3433 matching the dev server.
 
 ### Seed Credentials
 

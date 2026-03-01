@@ -2,6 +2,9 @@
 TITLE Staffing OS - Panel (Puerto 3433)
 COLOR 0B
 
+:: Cambia al directorio raiz del proyecto (padre de scripts/)
+cd /d "%~dp0.."
+
 echo =======================================================
 echo             INICIANDO STAFFING OS
 echo =======================================================
