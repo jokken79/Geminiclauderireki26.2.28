@@ -27,6 +27,9 @@ export const workHistorySchema = z.object({
   position: z.string().max(100).optional().or(z.literal("")),
   jobContent: z.string().max(200).optional().or(z.literal("")),
   eventType: z.string().min(1, "入社・退社を選択してください"),
+  hakenmoto: z.string().max(100).optional().or(z.literal("")),
+  hakensaki: z.string().max(100).optional().or(z.literal("")),
+  workLocation: z.string().max(100).optional().or(z.literal("")),
 })
 
 export const qualificationSchema = z.object({
@@ -41,6 +44,8 @@ export const familyMemberSchema = z.object({
   relationship: z.string().min(1, "続柄を入力してください").max(30),
   age: z.coerce.number().int().min(0).max(150).optional().or(z.literal("").transform(() => undefined)),
   liveTogether: z.boolean().default(false),
+  residence: z.string().max(10).optional().or(z.literal("")),
+  dependent: z.string().max(3).optional().or(z.literal("")),
 })
 
 // ===== Step-level schemas =====
@@ -141,6 +146,35 @@ export const step8Schema = z.object({
   covidVaccineStatus: z.string().max(50).optional().or(z.literal("")),
 })
 
+// ===== Rirekisho extra fields schema =====
+export const rirekishoSchema = z.object({
+  // Campos nuevos — Rirekisho Form
+  receptionDate: z.string().optional(),
+  timeInJapan: z.string().optional(),
+  mobile: z.string().optional(),
+  address3: z.string().max(100).optional(),
+  uniformSize: z.string().max(5).optional(),
+  waist: z.string().max(10).optional(),
+  safetyShoes: z.string().max(3).optional(),
+  glasses: z.string().max(3).optional(),
+  carOwner: z.string().max(3).optional(),
+  insurance: z.string().max(3).optional(),
+  licenseExpiry: optionalDateSchema,
+  education: z.string().max(100).optional(),
+  major: z.string().max(100).optional(),
+  speakLevel: z.string().max(30).optional(),
+  listenLevel: z.string().max(30).optional(),
+  kanjiReadLevel: z.string().max(15).optional(),
+  kanjiWriteLevel: z.string().max(15).optional(),
+  hiraganaReadLevel: z.string().max(15).optional(),
+  hiraganaWriteLevel: z.string().max(15).optional(),
+  katakanaReadLevel: z.string().max(15).optional(),
+  katakanaWriteLevel: z.string().max(15).optional(),
+  commuteMethod: z.string().max(20).optional(),
+  commuteTimeMin: z.string().max(10).optional(),
+  lunchPref: z.string().max(10).optional(),
+})
+
 // ===== Full candidate schema (for server-side validation) =====
 export const candidateSchema = step1Schema
   .merge(step2Schema)
@@ -150,6 +184,7 @@ export const candidateSchema = step1Schema
   .merge(step6Schema)
   .merge(step7Schema)
   .merge(step8Schema)
+  .merge(rirekishoSchema)
 
 export type CandidateFormData = z.infer<typeof candidateSchema>
 
