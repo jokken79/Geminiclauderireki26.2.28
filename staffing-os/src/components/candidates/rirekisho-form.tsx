@@ -180,8 +180,10 @@ export function RirekishoForm() {
           <div className="mb-2 flex gap-2">
             <div className="flex flex-col items-center" style={{ width: "28mm" }}>
               <div
-                className="grid place-items-center overflow-hidden border border-slate-400 bg-slate-50"
+                className="grid cursor-pointer place-items-center overflow-hidden border border-slate-400 bg-slate-50 hover:bg-slate-100"
                 style={{ width: "28mm", height: "36mm" }}
+                onClick={() => photoRef.current?.click()}
+                title="クリックして写真を選択"
               >
                 {photoDataUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -217,19 +219,11 @@ export function RirekishoForm() {
                 <tr>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-left text-[8pt] font-bold">氏名</th>
                   <td colSpan={3} className="border border-slate-400 px-1 py-1">
-                    <div className="flex gap-1">
-                      <input {...register("lastNameKanji")} placeholder="山田" className={tableFieldClass} />
-                      <span className="text-slate-300">　</span>
-                      <input {...register("firstNameKanji")} placeholder="太郎" className={tableFieldClass} />
-                    </div>
+                    <input {...register("lastNameKanji")} placeholder="例: Jesus Alfredo Peñafiel Kaneshiro" className={tableFieldClass} />
                   </td>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-left text-[8pt] font-bold">フリガナ</th>
                   <td colSpan={3} className="border border-slate-400 px-1 py-1">
-                    <div className="flex gap-1">
-                      <input {...register("lastNameFurigana")} placeholder="やまだ" className={tableFieldClass} />
-                      <span className="text-slate-300">　</span>
-                      <input {...register("firstNameFurigana")} placeholder="たろう" className={tableFieldClass} />
-                    </div>
+                    <input {...register("lastNameFurigana")} placeholder="フリガナ（カタカナ）" className={tableFieldClass} />
                   </td>
                 </tr>
                 <tr>
