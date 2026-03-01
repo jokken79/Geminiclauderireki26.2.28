@@ -208,9 +208,35 @@ model Candidate {
   emergencyContactPhone    String? @db.VarChar(20)
   emergencyContactRelation String? @db.VarChar(30)
 
+  // Campos nuevos — Rirekisho Form
+  receptionDate         DateTime?  @db.Date
+  timeInJapan           String?    @db.VarChar(10)
+  mobile                String?    @db.VarChar(20)
+  address3              String?    @db.VarChar(100)
+  uniformSize           String?    @db.VarChar(5)
+  waist                 String?    @db.VarChar(10)
+  safetyShoes           String?    @db.VarChar(3)
+  glasses               String?    @db.VarChar(3)
+  carOwner              String?    @db.VarChar(3)
+  insurance             String?    @db.VarChar(3)
+  licenseExpiry         DateTime?  @db.Date
+  education             String?    @db.VarChar(100)
+  major                 String?    @db.VarChar(100)
+  speakLevel            String?    @db.VarChar(30)
+  listenLevel           String?    @db.VarChar(30)
+  kanjiReadLevel        String?    @db.VarChar(15)
+  kanjiWriteLevel       String?    @db.VarChar(15)
+  hiraganaReadLevel     String?    @db.VarChar(15)
+  hiraganaWriteLevel    String?    @db.VarChar(15)
+  katakanaReadLevel     String?    @db.VarChar(15)
+  katakanaWriteLevel    String?    @db.VarChar(15)
+  commuteMethod         String?    @db.VarChar(20)
+  commuteTimeMin        String?    @db.VarChar(10)
+  lunchPref             String?    @db.VarChar(10)
+
   // ===== Relations =====
-  education      EducationHistory[]
-  workHistory    WorkHistory[]
+  educationHistory EducationHistory[]
+  workHistory      WorkHistory[]
   qualifications Qualification[]
   familyMembers  FamilyMember[]
   documents      Document[]
@@ -263,6 +289,11 @@ model WorkHistory {
   eventType   String  @db.VarChar(20) // 入社, 退社, 在職中
   sortOrder   Int     @default(0)
 
+  // Campos nuevos — Rirekisho
+  hakenmoto    String?  @db.VarChar(100)
+  hakensaki    String?  @db.VarChar(100)
+  workLocation String?  @db.VarChar(100)
+
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
@@ -298,6 +329,10 @@ model FamilyMember {
   age          Int?
   liveTogether Boolean @default(false)
   sortOrder    Int     @default(0)
+
+  // Campos nuevos — Rirekisho
+  residence  String?  @db.VarChar(10)
+  dependent  String?  @db.VarChar(3)
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 

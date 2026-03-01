@@ -59,7 +59,7 @@ export async function createCandidate(data: CandidateFormData) {
           familyMembers: familyMembers?.length
             ? { create: familyMembers.map((fm, i) => ({ ...fm, sortOrder: i })) }
             : undefined,
-          education: education?.length
+          educationHistory: education?.length
             ? { create: education.map((ed, i) => ({ ...ed, sortOrder: i })) }
             : undefined,
         },
@@ -172,7 +172,7 @@ export async function getCandidate(id: string) {
   const candidate = await prisma.candidate.findUnique({
     where: { id },
     include: {
-      education: { orderBy: { sortOrder: "asc" } },
+      educationHistory: { orderBy: { sortOrder: "asc" } },
       workHistory: { orderBy: { sortOrder: "asc" } },
       qualifications: { orderBy: { sortOrder: "asc" } },
       familyMembers: { orderBy: { sortOrder: "asc" } },
@@ -252,7 +252,7 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
           familyMembers: familyMembers?.length
             ? { create: familyMembers.map((fm, i) => ({ ...fm, sortOrder: i })) }
             : undefined,
-          education: education?.length
+          educationHistory: education?.length
             ? { create: education.map((ed, i) => ({ ...ed, sortOrder: i })) }
             : undefined,
         },

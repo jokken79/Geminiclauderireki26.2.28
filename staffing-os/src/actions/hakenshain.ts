@@ -235,7 +235,7 @@ export async function getHakenshain(id: string) {
           workHistory: { orderBy: { sortOrder: "asc" } },
           qualifications: { orderBy: { sortOrder: "asc" } },
           familyMembers: { orderBy: { sortOrder: "asc" } },
-          education: { orderBy: { sortOrder: "asc" } },
+          educationHistory: { orderBy: { sortOrder: "asc" } },
         },
       },
       company: true,
