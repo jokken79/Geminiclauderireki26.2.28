@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3333",
+    "dev": "next dev -p 3433",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -11,7 +11,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "test": "vitest"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -30,6 +31,7 @@
     "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.4.6",
     "prisma": "^6.19.2",
+    "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.2",
@@ -49,6 +51,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "jsdom": "^28.1.0",
     "prettier": "^3.8.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",

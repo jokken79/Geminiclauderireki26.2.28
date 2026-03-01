@@ -1,0 +1,43 @@
+{
+  "mcpServers": {
+    "antigravity": {
+      "command": "python",
+      "args": [
+        "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN/mcp-server/server.py"
+      ]
+    },
+    "antigravity-agents": {
+      "command": "python",
+      "args": [
+        "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN/.agent/mcp/agents-server.py"
+      ]
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    "git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:/Users/Kenji/Documents/GitHub/Geminiclauderireki26.2.28/staffing-os"
+      ]
+    },
+    "claude-mem": {
+      "command": "node",
+      "args": [
+        "C:/Users/Kenji/Documents/GitHub/claude-mem/plugin/scripts/mcp-server.cjs"
+      ]
+    }
+  }
+}

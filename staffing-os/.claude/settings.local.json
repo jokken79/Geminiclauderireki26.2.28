@@ -1,0 +1,11 @@
+{
+  "enabledMcpjsonServers": [
+    "antigravity",
+    "antigravity-agents",
+    "claude-mem",
+    "context7",
+    "git",
+    "filesystem"
+  ],
+  "enableAllProjectMcpServers": true
+}

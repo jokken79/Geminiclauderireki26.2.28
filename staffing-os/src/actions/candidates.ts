@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { candidateSchema, type CandidateFormData } from "@/lib/validators/candidate"
+import { saveBase64File } from "@/lib/file-storage"
 import type { CandidateStatus, Prisma } from "@prisma/client"
 
 // ============================================================
@@ -30,14 +31,18 @@ export async function createCandidate(data: CandidateFormData) {
     visaExpiry,
     visaStatus,
     gender,
+    photoDataUrl,
     ...candidateFields
   } = parsed.data as CandidateFormData & { education?: { year: number; month: number; schoolName: string; faculty?: string; eventType: string }[] }
 
   try {
+    const photoUrl = await saveBase64File(photoDataUrl, "candidates")
+
     const candidate = await prisma.$transaction(async (tx) => {
       const created = await tx.candidate.create({
         data: {
           ...candidateFields,
+          photoDataUrl: photoUrl,
           birthDate: new Date(birthDate),
           passportExpiry: passportExpiry ? new Date(passportExpiry) : null,
           residenceCardExpiry: residenceCardExpiry ? new Date(residenceCardExpiry) : null,
@@ -205,13 +210,19 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
     visaExpiry,
     visaStatus,
     gender,
+    photoDataUrl,
     ...candidateFields
   } = parsed.data as CandidateFormData & { education?: { year: number; month: number; schoolName: string; faculty?: string; eventType: string }[] }
 
   try {
+    const photoUrl = await saveBase64File(photoDataUrl, "candidates")
+
     await prisma.$transaction(async (tx) => {
       // Get old values for audit
-      const old = await tx.candidate.findUnique({ where: { id }, select: { lastNameKanji: true, firstNameKanji: true, status: true } })
+      const old = await tx.candidate.findUnique({ where: { id }, select: { lastNameKanji: true, firstNameKanji: true, status: true, photoDataUrl: true } })
+
+      // Maintain old photo if the new photo base64 is null/empty and an old one exists
+      const finalPhotoUrl = photoUrl || old?.photoDataUrl
 
       // Delete existing related records to replace them
       await tx.workHistory.deleteMany({ where: { candidateId: id } })
@@ -224,6 +235,7 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
         where: { id },
         data: {
           ...candidateFields,
+          photoDataUrl: finalPhotoUrl,
           birthDate: new Date(birthDate),
           passportExpiry: passportExpiry ? new Date(passportExpiry) : null,
           residenceCardExpiry: residenceCardExpiry ? new Date(residenceCardExpiry) : null,

@@ -21,9 +21,9 @@ const columns: ColumnDef<CandidateListItem>[] = [
     cell: ({ row }) => {
       const photo = row.original.photoDataUrl
       return (
-        <div className="flex h-10 w-8 items-center justify-center overflow-hidden rounded bg-muted">
+        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border bg-muted">
           {photo ? (
-            <img src={photo} alt="" className="h-full w-full object-cover" />
+            <img src={photo} alt={`${row.original.lastNameKanji} ${row.original.firstNameKanji}の写真`} className="h-full w-full object-cover" />
           ) : (
             <span className="text-xs text-muted-foreground">-</span>
           )}
@@ -87,7 +87,7 @@ const columns: ColumnDef<CandidateListItem>[] = [
     enableSorting: false,
     cell: ({ row }) => (
       <Link href={`/candidates/${row.original.id}`}>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" aria-label={`${row.original.lastNameKanji} ${row.original.firstNameKanji}の詳細を見る`}>
           <Eye className="h-4 w-4" />
         </Button>
       </Link>
@@ -144,6 +144,7 @@ export function CandidateList({ candidates, total, currentPage, search, status }
           value={status || ""}
           onChange={(e) => updateFilters(undefined, e.target.value)}
           className="w-40"
+          aria-label="ステータスフィルター"
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>

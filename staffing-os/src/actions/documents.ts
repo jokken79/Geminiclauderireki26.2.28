@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { saveBase64File } from "@/lib/file-storage"
 import type { DocumentType, Prisma } from "@prisma/client"
 
 // ============================================================
@@ -22,6 +23,8 @@ export async function createDocument(data: {
   if (!session?.user) throw new Error("認証が必要です")
 
   try {
+    const fileUrl = await saveBase64File(data.fileData, "documents")
+
     const document = await prisma.$transaction(async (tx) => {
       // Verify candidate exists
       const candidate = await tx.candidate.findUnique({
@@ -35,7 +38,7 @@ export async function createDocument(data: {
           candidateId: data.candidateId,
           type: data.type,
           fileName: data.fileName,
-          fileData: data.fileData,
+          fileData: fileUrl || data.fileData,
           mimeType: data.mimeType,
           expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
           notes: data.notes || null,

@@ -137,75 +137,108 @@ export function CandidateForm({ candidateId, defaultValues, mode }: CandidateFor
     })
   }
 
+  const progressPercentage = Math.round(((currentStep + 1) / STEP_TITLES.length) * 100)
+
   return (
     <div className="space-y-6">
-      {/* Step Indicator */}
-      <nav className="flex items-center justify-center gap-1 overflow-x-auto pb-2">
-        {STEP_TITLES.map((title, i) => (
-          <button
-            key={title}
-            type="button"
-            onClick={() => setCurrentStep(i)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap",
-              i === currentStep
-                ? "bg-primary text-primary-foreground"
-                : i < currentStep
-                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                  : "bg-muted text-muted-foreground"
-            )}
-          >
-            {i < currentStep && <Check className="h-3 w-3" />}
-            <span>{i + 1}. {title}</span>
-          </button>
-        ))}
-      </nav>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-muted-foreground">進捗</span>
+        <span className="text-sm font-bold text-primary">{progressPercentage}%</span>
+      </div>
+      <div className="w-full bg-muted rounded-full h-2.5 mb-6">
+        <div
+          className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-in-out"
+          style={{ width: `${progressPercentage}%` }}
+        ></div>
+      </div>
 
-      {/* Form */}
-      <FormProvider {...methods}>
-        <form onSubmit={methods.handleSubmit(onSubmit)}>
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {STEP_TITLES[currentStep]}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StepComponent />
-            </CardContent>
-          </Card>
+      <div className="flex flex-col md:flex-row gap-8">
+        {/* Vertical Stepper for Desktop, Horizontal for Mobile */}
+        <nav className="flex md:flex-col overflow-x-auto md:overflow-visible pb-4 md:pb-0 gap-2 md:gap-4 md:w-64 shrink-0">
+          {STEP_TITLES.map((title, i) => {
+            const isCompleted = i < currentStep
+            const isActive = i === currentStep
 
-          {/* Navigation Buttons */}
-          <div className="mt-4 flex items-center justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={goBack}
-              disabled={currentStep === 0}
-            >
-              戻る
-            </Button>
+            return (
+              <button
+                key={title}
+                type="button"
+                onClick={() => setCurrentStep(i)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all text-left whitespace-nowrap min-w-[200px] md:min-w-0 md:w-full border",
+                  isActive
+                    ? "bg-primary/10 text-primary border-primary ring-1 ring-primary/30"
+                    : isCompleted
+                      ? "bg-muted relative text-foreground border-border hover:bg-muted/80"
+                      : "bg-background text-muted-foreground border-border hover:bg-muted/50"
+                )}
+              >
+                <div className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                  isActive ? "bg-primary text-primary-foreground animate-pulse" :
+                    isCompleted ? "bg-[var(--color-success)] text-white" :
+                      "bg-muted-foreground/20 text-muted-foreground"
+                )}>
+                  {isCompleted ? <Check className="h-4 w-4" /> : i + 1}
+                </div>
+                <span>{title}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-            <span className="text-sm text-muted-foreground">
-              {currentStep + 1} / {STEP_TITLES.length}
-            </span>
+        {/* Form Area */}
+        <div className="flex-1">
+          <FormProvider {...methods}>
+            <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6">
+              <Card className="shadow-sm border-muted">
+                <CardHeader className="bg-muted/30 border-b">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <span className="text-muted-foreground">Step {currentStep + 1}:</span>
+                    {STEP_TITLES[currentStep]}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <StepComponent />
+                  </div>
+                </CardContent>
+              </Card>
 
-            {currentStep < STEP_COMPONENTS.length - 1 ? (
-              <Button type="button" onClick={goNext}>
-                次へ
-              </Button>
-            ) : (
-              <Button type="submit" disabled={isPending}>
-                {isPending
-                  ? "保存中..."
-                  : mode === "create"
-                    ? "登録する"
-                    : "更新する"}
-              </Button>
-            )}
-          </div>
-        </form>
-      </FormProvider>
+              {/* Navigation Buttons */}
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 sticky bottom-4 p-4 bg-background/95 backdrop-blur rounded-xl border shadow-sm">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={goBack}
+                  disabled={currentStep === 0}
+                  className="w-full sm:w-auto"
+                >
+                  前のステップへ
+                </Button>
+
+                <div className="text-sm font-medium text-muted-foreground hidden sm:block">
+                  {currentStep + 1} / {STEP_TITLES.length}
+                </div>
+
+                {currentStep < STEP_COMPONENTS.length - 1 ? (
+                  <Button type="button" onClick={goNext} className="w-full sm:w-auto bg-primary">
+                    次のステップへ
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={isPending} className="w-full sm:w-auto bg-[var(--color-success)] hover:bg-[var(--color-success)]/90 text-white">
+                    {isPending
+                      ? "保存中..."
+                      : mode === "create"
+                        ? "登録を完了する"
+                        : "更新を完了する"}
+                  </Button>
+                )}
+              </div>
+            </form>
+          </FormProvider>
+        </div>
+      </div>
     </div>
   )
 }

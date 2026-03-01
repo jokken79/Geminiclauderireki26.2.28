@@ -1,11 +1,41 @@
+# dependencies
 node_modules
-.next
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+build/
+
+# uploads/PII/sensitive
+public/uploads/
+
+# testing
+src/test/
+ coverage/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# build tools
+.DS_Store
+*.pem
+.env*
+.env*.local
+!*.template
+
+# git and docs
 .git
 .gitignore
 *.md
-.env
-.env.local
-.env.production
+
+# docker
 docker-compose*.yml
 Dockerfile
-nginx
+.dockerignore
+nginx/

@@ -32,11 +32,8 @@ export function Header() {
     <header className="flex h-16 items-center justify-between border-b bg-background px-6">
       <h2 className="text-lg font-semibold">{title}</h2>
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" aria-label="通知">
           <Bell className="h-5 w-5" />
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-            3
-          </span>
         </Button>
       </div>
     </header>
