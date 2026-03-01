@@ -52,10 +52,10 @@ export const familyMemberSchema = z.object({
 
 // Step 1: 基本情報
 export const step1Schema = z.object({
-  lastNameKanji: z.string().min(1, "氏（漢字）を入力してください").max(50),
-  firstNameKanji: z.string().min(1, "名（漢字）を入力してください").max(50),
-  lastNameFurigana: z.string().min(1, "ふりがな（氏）を入力してください").max(50),
-  firstNameFurigana: z.string().min(1, "ふりがな（名）を入力してください").max(50),
+  lastNameKanji: z.string().min(1, "氏名を入力してください").max(100),
+  firstNameKanji: z.string().max(50).optional().or(z.literal("")),
+  lastNameFurigana: z.string().max(100).optional().or(z.literal("")),
+  firstNameFurigana: z.string().max(50).optional().or(z.literal("")),
   lastNameRomaji: z.string().max(50).optional().or(z.literal("")),
   firstNameRomaji: z.string().max(50).optional().or(z.literal("")),
   birthDate: dateStringSchema,

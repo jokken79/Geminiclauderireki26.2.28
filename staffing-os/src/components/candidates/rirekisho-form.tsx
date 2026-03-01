@@ -219,7 +219,7 @@ export function RirekishoForm() {
                 <tr>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-left text-[8pt] font-bold">氏名</th>
                   <td colSpan={3} className="border border-slate-400 px-1 py-1">
-                    <input {...register("lastNameKanji")} placeholder="例: Jesus Alfredo Peñafiel Kaneshiro" className={tableFieldClass} />
+                    <input {...register("lastNameKanji")} placeholder="例: 山田 太郎" className={tableFieldClass} />
                   </td>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-left text-[8pt] font-bold">フリガナ</th>
                   <td colSpan={3} className="border border-slate-400 px-1 py-1">

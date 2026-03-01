@@ -55,6 +55,9 @@ export async function createCandidate(data: CandidateFormData) {
     commuteMethod,
     commuteTimeMin,
     lunchPref,
+    firstNameKanji,
+    lastNameFurigana,
+    firstNameFurigana,
     ...candidateFields
   } = parsed.data
 
@@ -65,6 +68,9 @@ export async function createCandidate(data: CandidateFormData) {
       const created = await tx.candidate.create({
         data: {
           ...candidateFields,
+          firstNameKanji: firstNameKanji ?? "",
+          lastNameFurigana: lastNameFurigana ?? "",
+          firstNameFurigana: firstNameFurigana ?? "",
           photoDataUrl: photoUrl,
           birthDate: new Date(birthDate),
           passportExpiry: passportExpiry ? new Date(passportExpiry) : null,
@@ -132,7 +138,7 @@ export async function createCandidate(data: CandidateFormData) {
           action: "CREATE",
           tableName: "Candidate",
           recordId: created.id,
-          newValues: { name: `${candidateFields.lastNameKanji} ${candidateFields.firstNameKanji}` },
+          newValues: { name: candidateFields.lastNameKanji },
         },
       })
 
@@ -294,6 +300,9 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
     commuteMethod,
     commuteTimeMin,
     lunchPref,
+    firstNameKanji: firstNameKanjiUpdate,
+    lastNameFurigana: lastNameFuriganaUpdate,
+    firstNameFurigana: firstNameFuriganaUpdate,
     ...candidateFields
   } = parsed.data
 
@@ -318,6 +327,9 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
         where: { id },
         data: {
           ...candidateFields,
+          firstNameKanji: firstNameKanjiUpdate ?? "",
+          lastNameFurigana: lastNameFuriganaUpdate ?? "",
+          firstNameFurigana: firstNameFuriganaUpdate ?? "",
           photoDataUrl: finalPhotoUrl,
           birthDate: new Date(birthDate),
           passportExpiry: passportExpiry ? new Date(passportExpiry) : null,
@@ -386,7 +398,7 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
           tableName: "Candidate",
           recordId: id,
           oldValues: old ?? undefined,
-          newValues: { name: `${candidateFields.lastNameKanji} ${candidateFields.firstNameKanji}` },
+          newValues: { name: candidateFields.lastNameKanji },
         },
       })
     })
