@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "antigravity": {
+      "command": "python",
+      "args": [
+        "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN/mcp-server/server.py"
+      ]
+    },
+    "antigravity-agents": {
+      "command": "python",
+      "args": [
+        "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN/.agent/mcp/agents-server.py"
+      ]
+    },
+    "claude-mem": {
+      "command": "node",
+      "args": [
+        "C:/Users/Kenji/Documents/GitHub/claude-mem/plugin/scripts/mcp-server.cjs"
+      ]
+    }
+  }
+}

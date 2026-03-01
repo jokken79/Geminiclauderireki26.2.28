@@ -1,0 +1,10 @@
+{
+  "gateway": "http://localhost:4747",
+  "ecosystem_root": "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN",
+  "version": "2.1.0",
+  "mcp_servers": [
+    "antigravity",
+    "antigravity-agents"
+  ],
+  "docs": "https://github.com/jokken79/AntigravitiSkillUSN"
+}
