@@ -1,3 +1,44 @@
+# CLAUDE.md — Repository Root
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Repository Structure
+
+This is a monorepo-style project. The main application lives in `staffing-os/`.
+
+```
+/
+├── staffing-os/          — Main application (Next.js)
+├── PromptCompleta        — Original project specification (Spanish)
+├── PromtCompleto         — Additional project specification
+├── gemini26.2.28         — Gemini prompt/context file
+└── README.md
+```
+
+**All development commands must be run from the `staffing-os/` directory.**
+
+See `staffing-os/CLAUDE.md` for detailed application guidance.
+
+## Quick Reference
+
+```bash
+cd staffing-os
+npm run dev              # Start dev server on port 3433
+npm run build            # Production build
+npm run lint             # ESLint
+npm run test             # Vitest
+npm run db:migrate       # Prisma migrations
+npm run db:seed          # Seed database
+npm run db:studio        # Open Prisma Studio
+```
+
+## Key Conventions
+
+- The application is a **Japanese staffing agency management system** (人材派遣管理システム)
+- UI labels, error messages in Server Actions, and most user-facing text are in **Japanese**
+- Code (variable names, comments in code) is in **English**, except for domain-specific constants
+- The dev server runs on **port 3433** (not the default 3000)
+
 <!-- ANTIGRAVITY-START -->
 
 ## Ecosistema Antigravity
