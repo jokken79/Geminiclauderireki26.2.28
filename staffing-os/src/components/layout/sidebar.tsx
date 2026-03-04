@@ -53,28 +53,44 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/settings", label: "設定", icon: "Settings", minRole: 7 },
 ]
 
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { ChevronLeft, ChevronRight, Menu } from "lucide-react"
+
 interface SidebarProps {
   userRole: UserRole
   userName: string
+  isCollapsed?: boolean
+  isMobileOpen?: boolean
+  toggleCollapse?: () => void
+  closeMobile?: () => void
 }
 
-export function Sidebar({ userRole, userName }: SidebarProps) {
+export function Sidebar({
+  userRole,
+  userName,
+  isCollapsed = false,
+  isMobileOpen = false,
+  toggleCollapse,
+  closeMobile
+}: SidebarProps) {
   const pathname = usePathname()
   const userRoleLevel = ROLE_HIERARCHY[userRole]
 
   const visibleItems = NAV_ITEMS.filter((item) => userRoleLevel >= item.minRole)
 
-  return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
+  const SidebarContent = () => (
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+      <div className={cn("flex h-16 items-center border-b px-4", isCollapsed ? "justify-center" : "gap-3")}>
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
           <span className="text-sm font-bold">S</span>
         </div>
-        <div>
-          <h1 className="text-sm font-bold">Staffing OS</h1>
-          <p className="text-xs text-muted-foreground">人材派遣管理</p>
-        </div>
+        {!isCollapsed && (
+          <div className="overflow-hidden">
+            <h1 className="truncate text-sm font-bold">Staffing OS</h1>
+            <p className="truncate text-xs text-muted-foreground">人材派遣管理</p>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
@@ -87,39 +103,79 @@ export function Sidebar({ userRole, userName }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={closeMobile}
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                 isActive
                   ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                isCollapsed && "justify-center px-0"
               )}
+              title={isCollapsed ? item.label : undefined}
             >
-              <Icon className="h-4 w-4 shrink-0" />
-              {item.label}
+              <Icon className="h-5 w-5 shrink-0" />
+              {!isCollapsed && <span className="truncate">{item.label}</span>}
             </Link>
           )
         })}
       </nav>
 
-      {/* User info */}
-      <div className="border-t p-3">
-        <div className="flex items-center justify-between rounded-lg px-3 py-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{userName}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {ROLE_HIERARCHY[userRole] >= 7 ? "管理者" : "ユーザー"}
-            </p>
-          </div>
+      {/* User info & Collapse toggle */}
+      <div className="border-t p-3 space-y-3">
+        <div className={cn("flex items-center justify-between rounded-lg px-3 py-2", isCollapsed && "justify-center px-0 flex-col gap-2")}>
+          {!isCollapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{userName}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {ROLE_HIERARCHY[userRole] >= 7 ? "管理者" : "ユーザー"}
+              </p>
+            </div>
+          )}
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             title="ログアウト"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Toggle Collapse Button (Desktop Only) */}
+        {toggleCollapse && (
+          <button
+            onClick={toggleCollapse}
+            className="hidden md:flex w-full items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            aria-label={isCollapsed ? "サイドバーを展開" : "サイドバーを折りたたむ"}
+          >
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
+        )}
       </div>
-    </aside>
+    </div>
+  )
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside
+        className={cn(
+          "hidden md:block h-screen border-r transition-all duration-300",
+          isCollapsed ? "w-[72px]" : "w-64"
+        )}
+      >
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile Drawer */}
+      <Sheet open={isMobileOpen} onOpenChange={(open) => !open && closeMobile?.()}>
+        <SheetContent side="left" className="p-0 w-64 border-r-0">
+          <SheetTitle className="sr-only">ナビゲーションメニュー</SheetTitle>
+          <div className="w-full h-full [&>div]:h-full">
+            <SidebarContent />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }

@@ -10,6 +10,9 @@ import { Select } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/shared/data-table"
 import { CandidateStatusBadge } from "@/components/shared/status-badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useDebounce } from "@/hooks/use-debounce"
+import { useEffect } from "react"
 import type { CandidateListItem } from "@/actions/candidates"
 import type { CandidateStatus } from "@prisma/client"
 
@@ -20,14 +23,12 @@ const columns: ColumnDef<CandidateListItem>[] = [
     enableSorting: false,
     cell: ({ row }) => {
       const photo = row.original.photoDataUrl
+      const initial = row.original.lastNameKanji ? row.original.lastNameKanji.charAt(0) : "S"
       return (
-        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border bg-muted">
-          {photo ? (
-            <img src={photo} alt={`${row.original.lastNameKanji} ${row.original.firstNameKanji}の写真`} className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-xs text-muted-foreground">-</span>
-          )}
-        </div>
+        <Avatar className="h-10 w-10 border bg-muted">
+          <AvatarImage src={photo || undefined} alt={`${row.original.lastNameKanji} ${row.original.firstNameKanji}の写真`} />
+          <AvatarFallback className="text-muted-foreground">{initial}</AvatarFallback>
+        </Avatar>
       )
     },
   },
@@ -115,16 +116,25 @@ interface CandidateListProps {
 export function CandidateList({ candidates, total, currentPage, search, status }: CandidateListProps) {
   const router = useRouter()
   const [searchValue, setSearchValue] = useState(search)
+  const debouncedSearch = useDebounce(searchValue, 300)
+
   const pageSize = 20
   const totalPages = Math.ceil(total / pageSize)
 
   const updateFilters = (newSearch?: string, newStatus?: string) => {
     const params = new URLSearchParams()
-    const s = newSearch ?? searchValue
+    const s = newSearch !== undefined ? newSearch : searchValue
     if (s) params.set("search", s)
-    if (newStatus) params.set("status", newStatus)
+    if (newStatus !== undefined ? newStatus : status) params.set("status", newStatus !== undefined ? newStatus : (status || ""))
     router.push(`/candidates?${params.toString()}`)
   }
+
+  // Trigger search on debounce
+  useEffect(() => {
+    if (debouncedSearch !== search) {
+      updateFilters(debouncedSearch, status)
+    }
+  }, [debouncedSearch])
 
   return (
     <div className="space-y-4">
@@ -135,14 +145,13 @@ export function CandidateList({ candidates, total, currentPage, search, status }
           <Input
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && updateFilters()}
             placeholder="名前で検索（漢字・ふりがな・ローマ字）"
             className="pl-9"
           />
         </div>
         <Select
           value={status || ""}
-          onChange={(e) => updateFilters(undefined, e.target.value)}
+          onChange={(e) => updateFilters(searchValue, e.target.value)}
           className="w-40"
           aria-label="ステータスフィルター"
         >
@@ -150,9 +159,6 @@ export function CandidateList({ candidates, total, currentPage, search, status }
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </Select>
-        <Button variant="outline" onClick={() => updateFilters()}>
-          検索
-        </Button>
       </div>
 
       {/* Table */}

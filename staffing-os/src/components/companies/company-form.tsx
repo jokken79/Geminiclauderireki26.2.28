@@ -1,15 +1,26 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 import { PREFECTURES } from "@/lib/constants"
 import { createCompany, updateCompany } from "@/actions/companies"
-import type { CompanyFormData } from "@/lib/validators/company"
+import { companySchema, type CompanyFormData } from "@/lib/validators/company"
 
 interface CompanyFormProps {
   companyId?: string
@@ -21,43 +32,29 @@ export function CompanyForm({ companyId, defaultValues, mode }: CompanyFormProps
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const [formData, setFormData] = useState<CompanyFormData>({
-    name: defaultValues?.name || "",
-    nameKana: defaultValues?.nameKana || "",
-    industry: defaultValues?.industry || "",
-    postalCode: defaultValues?.postalCode || "",
-    prefecture: defaultValues?.prefecture || "",
-    city: defaultValues?.city || "",
-    address: defaultValues?.address || "",
-    phone: defaultValues?.phone || "",
-    fax: defaultValues?.fax || "",
-    contactName: defaultValues?.contactName || "",
-    contactEmail: defaultValues?.contactEmail || "",
-    notes: defaultValues?.notes || "",
+  const form = useForm<CompanyFormData>({
+    resolver: zodResolver(companySchema),
+    defaultValues: {
+      name: defaultValues?.name || "",
+      nameKana: defaultValues?.nameKana || "",
+      industry: defaultValues?.industry || "",
+      postalCode: defaultValues?.postalCode || "",
+      prefecture: defaultValues?.prefecture || "",
+      city: defaultValues?.city || "",
+      address: defaultValues?.address || "",
+      phone: defaultValues?.phone || "",
+      fax: defaultValues?.fax || "",
+      contactName: defaultValues?.contactName || "",
+      contactEmail: defaultValues?.contactEmail || "",
+      notes: defaultValues?.notes || "",
+    },
   })
 
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
-  const updateField = (field: keyof CompanyFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-    setErrors((prev) => {
-      const next = { ...prev }
-      delete next[field]
-      return next
-    })
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.name) {
-      setErrors({ name: "企業名を入力してください" })
-      return
-    }
-
+  const onSubmit = (data: CompanyFormData) => {
     startTransition(async () => {
       const result = mode === "create"
-        ? await createCompany(formData)
-        : await updateCompany(companyId!, formData)
+        ? await createCompany(data)
+        : await updateCompany(companyId!, data)
 
       if ("error" in result) {
         toast.error(result.error)
@@ -69,140 +66,213 @@ export function CompanyForm({ companyId, defaultValues, mode }: CompanyFormProps
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>基本情報</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <div>
-            <Label>企業名 *</Label>
-            <Input
-              value={formData.name}
-              onChange={(e) => updateField("name", e.target.value)}
-              className={errors.name ? "border-red-500" : ""}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>基本情報</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>企業名 *</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
-          </div>
-          <div>
-            <Label>企業名（カナ）</Label>
-            <Input
-              value={formData.nameKana}
-              onChange={(e) => updateField("nameKana", e.target.value)}
+            <FormField
+              control={form.control}
+              name="nameKana"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>企業名（カナ）</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label>業種</Label>
-            <Input
-              value={formData.industry}
-              onChange={(e) => updateField("industry", e.target.value)}
-              placeholder="例: 自動車部品製造"
+            <FormField
+              control={form.control}
+              name="industry"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>業種</FormLabel>
+                  <FormControl>
+                    <Input placeholder="例: 自動車部品製造" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>所在地</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <div>
-            <Label>郵便番号</Label>
-            <Input
-              value={formData.postalCode}
-              onChange={(e) => updateField("postalCode", e.target.value)}
-              placeholder="123-4567"
+        <Card>
+          <CardHeader>
+            <CardTitle>所在地</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="postalCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>郵便番号</FormLabel>
+                  <FormControl>
+                    <Input placeholder="123-4567" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label>都道府県</Label>
-            <select
-              value={formData.prefecture}
-              onChange={(e) => updateField("prefecture", e.target.value)}
-              className="w-full rounded-md border px-3 py-2 text-sm"
-            >
-              <option value="">選択してください</option>
-              {PREFECTURES.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label>市区町村</Label>
-            <Input
-              value={formData.city}
-              onChange={(e) => updateField("city", e.target.value)}
+            <FormField
+              control={form.control}
+              name="prefecture"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>都道府県</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="選択してください" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {PREFECTURES.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label>住所</Label>
-            <Input
-              value={formData.address}
-              onChange={(e) => updateField("address", e.target.value)}
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>市区町村</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-        </CardContent>
-      </Card>
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>住所</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>連絡先</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <div>
-            <Label>電話番号</Label>
-            <Input
-              value={formData.phone}
-              onChange={(e) => updateField("phone", e.target.value)}
+        <Card>
+          <CardHeader>
+            <CardTitle>連絡先</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>電話番号</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label>FAX</Label>
-            <Input
-              value={formData.fax}
-              onChange={(e) => updateField("fax", e.target.value)}
+            <FormField
+              control={form.control}
+              name="fax"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>FAX</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label>担当者名</Label>
-            <Input
-              value={formData.contactName}
-              onChange={(e) => updateField("contactName", e.target.value)}
+            <FormField
+              control={form.control}
+              name="contactName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>担当者名</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div>
-            <Label>担当者メール</Label>
-            <Input
-              type="email"
-              value={formData.contactEmail}
-              onChange={(e) => updateField("contactEmail", e.target.value)}
+            <FormField
+              control={form.control}
+              name="contactEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>担当者メール</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>備考</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <textarea
-            value={formData.notes}
-            onChange={(e) => updateField("notes", e.target.value)}
-            className="w-full rounded-md border px-3 py-2 text-sm min-h-[80px]"
-          />
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>備考</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea className="min-h-[80px]" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
 
-      <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          キャンセル
-        </Button>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "保存中..." : mode === "create" ? "登録する" : "更新する"}
-        </Button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-4">
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            キャンセル
+          </Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "保存中..." : mode === "create" ? "登録する" : "更新する"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   )
 }
