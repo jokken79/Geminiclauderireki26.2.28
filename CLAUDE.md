@@ -44,7 +44,7 @@ npm run db:studio        # Open Prisma Studio
 ## Ecosistema Antigravity
 
 Proyecto integrado con el ecosistema **Antigravity v2.1.0** — 40+ agentes, 732 skills.
-Instalado por Nexus el 2026-03-01.
+Instalado por Nexus el 2026-03-04.
 
 ### Archivos instalados
 
