@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { requireRole } from "@/lib/rbac"
 import { saveBase64File } from "@/lib/file-storage"
 import type { DocumentType, Prisma } from "@prisma/client"
 
@@ -19,8 +19,7 @@ export async function createDocument(data: {
   expiryDate?: string
   notes?: string
 }) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   try {
     const fileUrl = await saveBase64File(data.fileData, "documents")
@@ -97,8 +96,7 @@ export async function getDocuments(params: {
   page?: number
   pageSize?: number
 }): Promise<{ documents: DocumentListItem[]; total: number }> {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   const { search, type, expiringSoon, page = 1, pageSize = 20 } = params
   const skip = (page - 1) * pageSize
@@ -160,8 +158,7 @@ export async function getDocuments(params: {
 // ============================================================
 
 export async function getDocument(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   return prisma.document.findUnique({
     where: { id },
@@ -181,8 +178,7 @@ export async function getDocument(id: string) {
 // ============================================================
 
 export async function deleteDocument(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -219,8 +215,7 @@ export async function deleteDocument(id: string) {
 // ============================================================
 
 export async function getExpiringDocuments(daysAhead: number = 30) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   const targetDate = new Date()
   targetDate.setDate(targetDate.getDate() + daysAhead)

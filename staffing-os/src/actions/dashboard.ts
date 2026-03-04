@@ -1,11 +1,10 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { requireRole } from "@/lib/rbac"
 
 export async function getDashboardStats() {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  await requireRole("COORDINATOR")
 
   const now = new Date()
   const thirtyDaysFromNow = new Date()

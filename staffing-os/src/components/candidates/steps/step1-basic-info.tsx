@@ -3,7 +3,7 @@
 import { useFormContext } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
+import { NativeSelect } from "@/components/ui/select"
 import type { CandidateFormData } from "@/lib/validators/candidate"
 
 const GENDER_OPTIONS = [
@@ -61,11 +61,11 @@ export function Step1BasicInfo() {
 
       <div className="space-y-2">
         <Label htmlFor="gender">性別</Label>
-        <Select id="gender" {...register("gender")}>
+        <NativeSelect id="gender" {...register("gender")}>
           {GENDER_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
-        </Select>
+        </NativeSelect>
       </div>
 
       <div className="space-y-2 md:col-span-2">

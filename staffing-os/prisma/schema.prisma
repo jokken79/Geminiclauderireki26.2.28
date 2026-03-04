@@ -251,6 +251,7 @@ model Candidate {
   @@index([status])
   @@index([nationality])
   @@index([visaExpiry])
+  @@index([status, visaExpiry])
 }
 
 // ============================================================
@@ -422,6 +423,7 @@ model HakenshainAssignment {
   @@index([status])
   @@index([teishokubiDate])
   @@index([hireDate])
+  @@index([status, teishokubiDate])
 }
 
 // ============================================================
@@ -492,6 +494,7 @@ model Document {
   @@index([candidateId])
   @@index([type])
   @@index([expiryDate])
+  @@index([expiryDate, type])
 }
 
 // ============================================================

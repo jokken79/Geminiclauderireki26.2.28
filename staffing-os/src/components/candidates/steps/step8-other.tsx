@@ -3,7 +3,7 @@
 import { useFormContext } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
+import { NativeSelect } from "@/components/ui/select"
 import { JLPT_LABELS, BLOOD_TYPES } from "@/lib/constants"
 import type { CandidateFormData } from "@/lib/validators/candidate"
 
@@ -18,11 +18,11 @@ export function Step8Other() {
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1">
             <Label className="text-xs">JLPT</Label>
-            <Select {...register("jlptLevel")}>
+            <NativeSelect {...register("jlptLevel")}>
               {Object.entries(JLPT_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
-            </Select>
+            </NativeSelect>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">日本語会話力</Label>
@@ -41,12 +41,12 @@ export function Step8Other() {
         <div className="grid gap-3 md:grid-cols-5">
           <div className="space-y-1">
             <Label className="text-xs">血液型</Label>
-            <Select {...register("bloodType")}>
+            <NativeSelect {...register("bloodType")}>
               <option value="">未選択</option>
               {BLOOD_TYPES.map((bt) => (
                 <option key={bt} value={bt}>{bt}型</option>
               ))}
-            </Select>
+            </NativeSelect>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">身長 (cm)</Label>
@@ -62,12 +62,12 @@ export function Step8Other() {
           </div>
           <div className="space-y-1">
             <Label className="text-xs">利き手</Label>
-            <Select {...register("dominantHand")}>
+            <NativeSelect {...register("dominantHand")}>
               <option value="">未選択</option>
               <option value="右">右</option>
               <option value="左">左</option>
               <option value="両方">両方</option>
-            </Select>
+            </NativeSelect>
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-2">

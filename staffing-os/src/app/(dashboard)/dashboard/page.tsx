@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Users, UserCheck, Briefcase, AlertTriangle, Building2, Clock, TrendingUp, TrendingDown } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { getDashboardStats } from "@/actions/dashboard"
 import { AlertsPanel } from "@/components/dashboard/alerts-panel"
 import { RecentActivity } from "@/components/dashboard/recent-activity"

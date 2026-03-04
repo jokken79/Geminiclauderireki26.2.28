@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
-import { ChevronLeft, ChevronRight, Menu } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 interface SidebarProps {
   userRole: UserRole
@@ -78,7 +78,7 @@ export function Sidebar({
 
   const visibleItems = NAV_ITEMS.filter((item) => userRoleLevel >= item.minRole)
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
       <div className={cn("flex h-16 items-center border-b px-4", isCollapsed ? "justify-center" : "gap-3")}>
@@ -164,7 +164,7 @@ export function Sidebar({
           isCollapsed ? "w-[72px]" : "w-64"
         )}
       >
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Mobile Drawer */}
@@ -172,7 +172,7 @@ export function Sidebar({
         <SheetContent side="left" className="p-0 w-64 border-r-0">
           <SheetTitle className="sr-only">ナビゲーションメニュー</SheetTitle>
           <div className="w-full h-full [&>div]:h-full">
-            <SidebarContent />
+            {sidebarContent}
           </div>
         </SheetContent>
       </Sheet>

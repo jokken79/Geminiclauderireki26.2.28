@@ -61,7 +61,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: 8 * 60 * 60, // 8 hours
+    updateAge: 60 * 60, // Rotate token every hour
   },
   pages: {
     signIn: "/login",

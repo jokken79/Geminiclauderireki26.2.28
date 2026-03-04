@@ -3,7 +3,7 @@
 import { useFormContext } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
+import { NativeSelect } from "@/components/ui/select"
 import { PREFECTURES } from "@/lib/constants"
 import type { CandidateFormData } from "@/lib/validators/candidate"
 
@@ -43,12 +43,12 @@ export function Step2Contact() {
 
       <div className="space-y-2">
         <Label htmlFor="prefecture">都道府県</Label>
-        <Select id="prefecture" {...register("prefecture")}>
+        <NativeSelect id="prefecture" {...register("prefecture")}>
           <option value="">選択してください</option>
           {PREFECTURES.map((pref) => (
             <option key={pref} value={pref}>{pref}</option>
           ))}
-        </Select>
+        </NativeSelect>
       </div>
 
       <div className="space-y-2 md:col-span-2">

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { requireRole } from "@/lib/rbac"
 import { companySchema, type CompanyFormData } from "@/lib/validators/company"
 
 // ============================================================
@@ -10,8 +10,7 @@ import { companySchema, type CompanyFormData } from "@/lib/validators/company"
 // ============================================================
 
 export async function createCompany(data: CompanyFormData) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   const parsed = companySchema.safeParse(data)
   if (!parsed.success) {
@@ -67,8 +66,7 @@ export async function getCompanies(params: {
   page?: number
   pageSize?: number
 }) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("COORDINATOR")
 
   const { search, page = 1, pageSize = 20 } = params
   const skip = (page - 1) * pageSize
@@ -117,8 +115,7 @@ export async function getCompanies(params: {
 // ============================================================
 
 export async function getCompany(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("COORDINATOR")
 
   return prisma.clientCompany.findUnique({
     where: { id },
@@ -156,8 +153,7 @@ export async function getCompany(id: string) {
 // ============================================================
 
 export async function updateCompany(id: string, data: CompanyFormData) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   const parsed = companySchema.safeParse(data)
   if (!parsed.success) {

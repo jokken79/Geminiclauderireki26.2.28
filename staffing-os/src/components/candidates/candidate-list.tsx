@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
 import { Eye, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Select } from "@/components/ui/select"
+import { NativeSelect } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/shared/data-table"
 import { CandidateStatusBadge } from "@/components/shared/status-badge"
@@ -149,7 +149,7 @@ export function CandidateList({ candidates, total, currentPage, search, status }
             className="pl-9"
           />
         </div>
-        <Select
+        <NativeSelect
           value={status || ""}
           onChange={(e) => updateFilters(searchValue, e.target.value)}
           className="w-40"
@@ -158,7 +158,7 @@ export function CandidateList({ candidates, total, currentPage, search, status }
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
-        </Select>
+        </NativeSelect>
       </div>
 
       {/* Table */}

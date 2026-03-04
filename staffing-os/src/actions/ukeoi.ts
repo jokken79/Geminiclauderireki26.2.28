@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { requireRole } from "@/lib/rbac"
 import { ukeoiSchema, type UkeoiFormData } from "@/lib/validators/ukeoi"
 import type { AssignmentStatus, Prisma } from "@prisma/client"
 
@@ -11,8 +11,7 @@ import type { AssignmentStatus, Prisma } from "@prisma/client"
 // ============================================================
 
 export async function createUkeoi(data: UkeoiFormData) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   const parsed = ukeoiSchema.safeParse(data)
   if (!parsed.success) {
@@ -136,8 +135,7 @@ export async function getUkeoiList(params: {
   page?: number
   pageSize?: number
 }): Promise<{ ukeoi: UkeoiListItem[]; total: number }> {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   const { search, status, page = 1, pageSize = 20 } = params
   const skip = (page - 1) * pageSize
@@ -198,8 +196,7 @@ export async function getUkeoiList(params: {
 // ============================================================
 
 export async function getUkeoi(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   const ukeoi = await prisma.ukeoiAssignment.findUnique({
     where: { id },
@@ -223,8 +220,7 @@ export async function getUkeoi(id: string) {
 // ============================================================
 
 export async function updateUkeoiStatus(id: string, status: AssignmentStatus) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   try {
     await prisma.$transaction(async (tx) => {

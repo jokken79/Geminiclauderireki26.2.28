@@ -6,13 +6,13 @@ const prisma = new PrismaClient()
 async function main() {
   console.log("Seeding database...")
 
-  // Create admin user
-  const adminPassword = await hash("admin123", 12)
+  // Create admin user (use env vars in production)
+  const adminPassword = await hash(process.env.SEED_ADMIN_PASSWORD || "admin123", 12)
   const admin = await prisma.user.upsert({
-    where: { email: "admin@staffing-os.jp" },
+    where: { email: process.env.SEED_ADMIN_EMAIL || "admin@staffing-os.jp" },
     update: {},
     create: {
-      email: "admin@staffing-os.jp",
+      email: process.env.SEED_ADMIN_EMAIL || "admin@staffing-os.jp",
       name: "管理者",
       hashedPassword: adminPassword,
       role: UserRole.SUPER_ADMIN,
@@ -20,13 +20,13 @@ async function main() {
   })
   console.log(`Created admin user: ${admin.email}`)
 
-  // Create tantosha user
-  const tantoshaPassword = await hash("tantosha123", 12)
+  // Create tantosha user (use env vars in production)
+  const tantoshaPassword = await hash(process.env.SEED_TANTOSHA_PASSWORD || "tantosha123", 12)
   const tantosha = await prisma.user.upsert({
-    where: { email: "tantosha@staffing-os.jp" },
+    where: { email: process.env.SEED_TANTOSHA_EMAIL || "tantosha@staffing-os.jp" },
     update: {},
     create: {
-      email: "tantosha@staffing-os.jp",
+      email: process.env.SEED_TANTOSHA_EMAIL || "tantosha@staffing-os.jp",
       name: "担当者太郎",
       hashedPassword: tantoshaPassword,
       role: UserRole.TANTOSHA,
