@@ -45,9 +45,8 @@ export function RirekishoForm() {
   const photoRef = useRef<HTMLInputElement>(null)
   const [photoDataUrl, setPhotoDataUrl] = useState("")
 
-  const form = useForm<CandidateFormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(candidateSchema) as any,
+  const form = useForm({
+    resolver: zodResolver(candidateSchema),
     defaultValues: {
       lastNameKanji: "",
       firstNameKanji: "",

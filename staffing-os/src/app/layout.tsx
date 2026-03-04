@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import localFont from "next/font/local"
 import { Toaster } from "sonner"
 import "./globals.css"
 

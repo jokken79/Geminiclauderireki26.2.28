@@ -5,7 +5,7 @@ import { Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
+import { NativeSelect } from "@/components/ui/select"
 import type { CandidateFormData } from "@/lib/validators/candidate"
 
 export function Step5WorkHistory() {
@@ -86,11 +86,11 @@ export function Step5WorkHistory() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">区分</Label>
-              <Select {...register(`workHistory.${index}.eventType`)}>
+              <NativeSelect {...register(`workHistory.${index}.eventType`)}>
                 <option value="入社">入社</option>
                 <option value="退社">退社</option>
                 <option value="在職中">在職中</option>
-              </Select>
+              </NativeSelect>
             </div>
           </div>
 

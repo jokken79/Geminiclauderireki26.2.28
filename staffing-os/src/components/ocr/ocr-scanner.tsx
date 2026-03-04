@@ -75,11 +75,10 @@ export function OcrScanner() {
     router.push(`/candidates/new?${params.toString()}`)
   }
 
-  // Editable field component
-  const EditableField = ({ label, field }: { label: string; field: keyof OcrExtractedFields }) => {
+  const renderEditableField = (label: string, field: keyof OcrExtractedFields) => {
     const value = ocrResult?.[field] as string | undefined
     return (
-      <div>
+      <div key={field}>
         <Label className="text-xs">{label}</Label>
         <Input
           value={value || ""}
@@ -160,12 +159,12 @@ export function OcrScanner() {
             <div>
               <h4 className="text-sm font-medium border-b pb-1 mb-3">基本情報</h4>
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField label="姓（漢字）" field="lastNameKanji" />
-                <EditableField label="名（漢字）" field="firstNameKanji" />
-                <EditableField label="生年月日" field="birthDate" />
-                <EditableField label="ふりがな（姓）" field="lastNameFurigana" />
-                <EditableField label="ふりがな（名）" field="firstNameFurigana" />
-                <EditableField label="国籍" field="nationality" />
+                {renderEditableField("姓（漢字）", "lastNameKanji")}
+                {renderEditableField("名（漢字）", "firstNameKanji")}
+                {renderEditableField("生年月日", "birthDate")}
+                {renderEditableField("ふりがな（姓）", "lastNameFurigana")}
+                {renderEditableField("ふりがな（名）", "firstNameFurigana")}
+                {renderEditableField("国籍", "nationality")}
               </div>
             </div>
 
@@ -173,12 +172,12 @@ export function OcrScanner() {
             <div>
               <h4 className="text-sm font-medium border-b pb-1 mb-3">連絡先</h4>
               <div className="grid gap-3 md:grid-cols-3">
-                <EditableField label="郵便番号" field="postalCode" />
-                <EditableField label="都道府県" field="prefecture" />
-                <EditableField label="市区町村" field="city" />
-                <EditableField label="住所" field="addressLine1" />
-                <EditableField label="電話番号" field="phone" />
-                <EditableField label="メール" field="email" />
+                {renderEditableField("郵便番号", "postalCode")}
+                {renderEditableField("都道府県", "prefecture")}
+                {renderEditableField("市区町村", "city")}
+                {renderEditableField("住所", "addressLine1")}
+                {renderEditableField("電話番号", "phone")}
+                {renderEditableField("メール", "email")}
               </div>
             </div>
 

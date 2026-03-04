@@ -148,11 +148,13 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="rounded-lg bg-muted p-4 text-center text-xs text-muted-foreground">
-            <p className="font-medium text-foreground mb-1">デモ用クレデンシャル</p>
-            <p>Admin: admin@example.com / password123</p>
-            <p>User: user@example.com / password123</p>
-          </div>
+          {process.env.NODE_ENV === "development" && (
+            <div className="rounded-lg bg-muted p-4 text-center text-xs text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">デモ用クレデンシャル</p>
+              <p>Admin: admin@staffing-os.jp / admin123</p>
+              <p>Tantosha: tantosha@staffing-os.jp / tantosha123</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

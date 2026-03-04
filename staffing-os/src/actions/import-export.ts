@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { requireRole } from "@/lib/rbac"
 import { generateSkillSheet, type SkillSheetData } from "@/services/skill-sheet-service"
 
 // ============================================================
@@ -9,8 +9,7 @@ import { generateSkillSheet, type SkillSheetData } from "@/services/skill-sheet-
 // ============================================================
 
 export async function exportCandidatesCsv() {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("ADMIN")
 
   const candidates = await prisma.candidate.findMany({
     select: {
@@ -68,7 +67,7 @@ export async function exportCandidatesCsv() {
 
   const csvContent = BOM + [
     headers.join(","),
-    ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+    ...rows.map((row) => row.map((cell) => { const s = String(cell).replace(/"/g, '""'); return /^[=+\-@\t\r]/.test(s) ? `"'${s}"` : `"${s}"`; }).join(",")),
   ].join("\n")
 
   return csvContent
@@ -79,8 +78,7 @@ export async function exportCandidatesCsv() {
 // ============================================================
 
 export async function exportHakenshainCsv() {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("ADMIN")
 
   const hakenshain = await prisma.hakenshainAssignment.findMany({
     include: {
@@ -117,7 +115,7 @@ export async function exportHakenshainCsv() {
 
   const csvContent = BOM + [
     headers.join(","),
-    ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+    ...rows.map((row) => row.map((cell) => { const s = String(cell).replace(/"/g, '""'); return /^[=+\-@\t\r]/.test(s) ? `"'${s}"` : `"${s}"`; }).join(",")),
   ].join("\n")
 
   return csvContent
@@ -128,8 +126,7 @@ export async function exportHakenshainCsv() {
 // ============================================================
 
 export async function generateCandidateSkillSheet(candidateId: string): Promise<SkillSheetData | null> {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("ADMIN")
 
   const candidate = await prisma.candidate.findUnique({
     where: { id: candidateId },

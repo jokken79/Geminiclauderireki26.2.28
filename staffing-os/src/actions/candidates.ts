@@ -2,18 +2,19 @@
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { requireRole } from "@/lib/rbac"
 import { candidateSchema, type CandidateFormData } from "@/lib/validators/candidate"
 import { saveBase64File } from "@/lib/file-storage"
 import type { CandidateStatus, Prisma } from "@prisma/client"
+
+const MAX_SEARCH_LENGTH = 100
 
 // ============================================================
 // CREATE
 // ============================================================
 
 export async function createCandidate(data: CandidateFormData) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   const parsed = candidateSchema.safeParse(data)
   if (!parsed.success) {
@@ -177,8 +178,7 @@ export async function getCandidates(params: {
   page?: number
   pageSize?: number
 }): Promise<{ candidates: CandidateListItem[]; total: number }> {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  await requireRole("COORDINATOR")
 
   const { search, status, page = 1, pageSize = 20 } = params
   const skip = (page - 1) * pageSize
@@ -190,6 +190,9 @@ export async function getCandidates(params: {
   }
 
   if (search) {
+    if (search.length > MAX_SEARCH_LENGTH) {
+      return { candidates: [], total: 0 }
+    }
     where.OR = [
       { lastNameKanji: { contains: search, mode: "insensitive" } },
       { firstNameKanji: { contains: search, mode: "insensitive" } },
@@ -232,8 +235,7 @@ export async function getCandidates(params: {
 // ============================================================
 
 export async function getCandidate(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  await requireRole("COORDINATOR")
 
   const candidate = await prisma.candidate.findUnique({
     where: { id },
@@ -257,8 +259,7 @@ export async function getCandidate(id: string) {
 // ============================================================
 
 export async function updateCandidate(id: string, data: CandidateFormData) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   const parsed = candidateSchema.safeParse(data)
   if (!parsed.success) {
@@ -417,8 +418,7 @@ export async function updateCandidate(id: string, data: CandidateFormData) {
 // ============================================================
 
 export async function updateCandidateStatus(id: string, status: CandidateStatus) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -455,8 +455,7 @@ export async function updateCandidateStatus(id: string, status: CandidateStatus)
 // ============================================================
 
 export async function deleteCandidate(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("ADMIN")
 
   try {
     await prisma.$transaction(async (tx) => {

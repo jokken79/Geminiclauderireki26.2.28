@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { requireRole } from "@/lib/rbac"
 import { nyushaSchema, type NyushaFormData } from "@/lib/validators/hakenshain"
 import { calculateTeishokubi } from "@/lib/teishokubi"
 import type { AssignmentStatus, Prisma } from "@prisma/client"
@@ -12,8 +12,7 @@ import type { AssignmentStatus, Prisma } from "@prisma/client"
 // ============================================================
 
 export async function createHakenshain(data: NyushaFormData) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   const parsed = nyushaSchema.safeParse(data)
   if (!parsed.success) {
@@ -151,8 +150,7 @@ export async function getHakenshainList(params: {
   page?: number
   pageSize?: number
 }): Promise<{ hakenshain: HakenshainListItem[]; total: number }> {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   const { search, status, companyId, page = 1, pageSize = 20 } = params
   const skip = (page - 1) * pageSize
@@ -224,8 +222,7 @@ export async function getHakenshainList(params: {
 // ============================================================
 
 export async function getHakenshain(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   const hakenshain = await prisma.hakenshainAssignment.findUnique({
     where: { id },
@@ -251,8 +248,7 @@ export async function getHakenshain(id: string) {
 // ============================================================
 
 export async function updateHakenshainStatus(id: string, status: AssignmentStatus) {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("TANTOSHA")
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -292,8 +288,7 @@ export async function updateHakenshainStatus(id: string, status: AssignmentStatu
 // ============================================================
 
 export async function getApprovedCandidates() {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   return prisma.candidate.findMany({
     where: { status: "APPROVED" },
@@ -319,8 +314,7 @@ export async function getApprovedCandidates() {
 // ============================================================
 
 export async function getActiveCompanies() {
-  const session = await auth()
-  if (!session?.user) throw new Error("認証が必要です")
+  const session = await requireRole("KANRININSHA")
 
   return prisma.clientCompany.findMany({
     where: { isActive: true },

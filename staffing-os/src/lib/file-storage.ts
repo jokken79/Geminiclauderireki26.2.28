@@ -25,12 +25,23 @@ export async function saveBase64File(base64String: string | null | undefined, ca
         const base64Data = matches[2];
         const buffer = Buffer.from(base64Data, "base64");
 
-        // Map MIME type to extension
-        let extension = "bin";
-        if (mimeType === "image/jpeg") extension = "jpg";
-        else if (mimeType === "image/png") extension = "png";
-        else if (mimeType === "image/webp") extension = "webp";
-        else if (mimeType === "application/pdf") extension = "pdf";
+        // Validate file size (max 10MB)
+        const MAX_FILE_SIZE = 10 * 1024 * 1024;
+        if (buffer.length > MAX_FILE_SIZE) {
+            return null;
+        }
+
+        // Map MIME type to extension (allowlist)
+        const ALLOWED_TYPES: Record<string, string> = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+            "application/pdf": "pdf",
+        };
+        const extension = ALLOWED_TYPES[mimeType];
+        if (!extension) {
+            return null;
+        }
 
         // Generate random filename
         const filename = `${crypto.randomUUID()}.${extension}`;

@@ -3,7 +3,7 @@
 import { useFormContext } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select } from "@/components/ui/select"
+import { NativeSelect } from "@/components/ui/select"
 import type { CandidateFormData } from "@/lib/validators/candidate"
 
 const VISA_OPTIONS = [
@@ -49,11 +49,11 @@ export function Step3Immigration() {
 
       <div className="space-y-2">
         <Label htmlFor="visaStatus">在留資格</Label>
-        <Select id="visaStatus" {...register("visaStatus")}>
+        <NativeSelect id="visaStatus" {...register("visaStatus")}>
           {VISA_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
-        </Select>
+        </NativeSelect>
       </div>
 
       <div className="space-y-2">
