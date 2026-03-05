@@ -9,21 +9,27 @@ import { DashboardCharts } from "@/components/dashboard/dashboard-charts"
 export default async function DashboardPage() {
   const { stats, alerts, recentActivity } = await getDashboardStats()
 
+  function trendLabel(trend: { percent: number; direction: "up" | "down" | "flat" }): string {
+    if (trend.direction === "flat") return "前月比 変動なし"
+    const sign = trend.direction === "up" ? "+" : "-"
+    return `前月比 ${sign}${trend.percent}%`
+  }
+
   const statCards = [
     {
       label: "候補者",
       value: stats.totalCandidates,
-      sub: stats.pendingCandidates > 0 ? `${stats.pendingCandidates}件審査中` : "前月比 +12%",
+      sub: stats.pendingCandidates > 0 ? `${stats.pendingCandidates}件審査中` : trendLabel(stats.trends.candidates),
       icon: Users,
-      trend: "up",
+      trend: stats.trends.candidates.direction === "down" ? "down" : "up",
       color: "text-[var(--color-primary)] bg-[var(--color-primary)]/10",
       href: "/candidates",
     },
     {
       label: "派遣社員",
       value: stats.activeHaken,
-      sub: "前月比 +5%",
-      trend: "up",
+      sub: trendLabel(stats.trends.haken),
+      trend: stats.trends.haken.direction === "down" ? "down" : "up",
       icon: UserCheck,
       color: "text-[var(--color-secondary)] bg-[var(--color-secondary)]/10",
       href: "/hakenshain",
@@ -31,8 +37,8 @@ export default async function DashboardPage() {
     {
       label: "請負",
       value: stats.activeUkeoi,
-      sub: "前月比 -2%",
-      trend: "down",
+      sub: trendLabel(stats.trends.ukeoi),
+      trend: stats.trends.ukeoi.direction === "down" ? "down" : "up",
       icon: Briefcase,
       color: "text-[var(--color-accent)] bg-[var(--color-accent)]/10",
       href: "/ukeoi",

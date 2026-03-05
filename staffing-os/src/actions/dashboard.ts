@@ -10,6 +10,9 @@ export async function getDashboardStats() {
   const thirtyDaysFromNow = new Date()
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
 
+  // Start of current month for trend calculations
+  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
   const [
     totalCandidates,
     pendingCandidates,
@@ -22,6 +25,10 @@ export async function getDashboardStats() {
     nearTeishokubi,
     // Recent audit log
     recentActivity,
+    // New this month (for trend calculations)
+    newCandidatesThisMonth,
+    newHakenThisMonth,
+    newUkeoiThisMonth,
   ] = await Promise.all([
     prisma.candidate.count(),
     prisma.candidate.count({ where: { status: "PENDING" } }),
@@ -102,9 +109,41 @@ export async function getDashboardStats() {
         },
       },
     }),
+    // New this month (for trend calculations)
+    prisma.candidate.count({
+      where: { createdAt: { gte: startOfCurrentMonth } },
+    }),
+    prisma.hakenshainAssignment.count({
+      where: {
+        status: "ACTIVE",
+        startDate: { gte: startOfCurrentMonth },
+      },
+    }),
+    prisma.ukeoiAssignment.count({
+      where: {
+        status: "ACTIVE",
+        startDate: { gte: startOfCurrentMonth },
+      },
+    }),
   ])
 
   const totalAlerts = expiringVisas.length + expiringDocuments.length + nearTeishokubi.length
+
+  // Calculate month-over-month trend percentages
+  function calcTrend(current: number, previous: number): { percent: number; direction: "up" | "down" | "flat" } {
+    if (previous === 0) {
+      return current > 0 ? { percent: 100, direction: "up" } : { percent: 0, direction: "flat" }
+    }
+    const change = ((current - previous) / previous) * 100
+    const rounded = Math.round(Math.abs(change))
+    if (change > 0) return { percent: rounded, direction: "up" }
+    if (change < 0) return { percent: rounded, direction: "down" }
+    return { percent: 0, direction: "flat" }
+  }
+
+  const prevMonthCandidates = totalCandidates - newCandidatesThisMonth
+  const prevMonthHaken = activeHaken - newHakenThisMonth
+  const prevMonthUkeoi = activeUkeoi - newUkeoiThisMonth
 
   return {
     stats: {
@@ -114,6 +153,11 @@ export async function getDashboardStats() {
       activeUkeoi,
       totalCompanies,
       totalAlerts,
+      trends: {
+        candidates: calcTrend(totalCandidates, prevMonthCandidates),
+        haken: calcTrend(activeHaken, prevMonthHaken),
+        ukeoi: calcTrend(activeUkeoi, prevMonthUkeoi),
+      },
     },
     alerts: {
       expiringVisas,
