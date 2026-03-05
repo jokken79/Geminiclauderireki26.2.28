@@ -20,7 +20,7 @@ export function DashboardShell({ children, userRole, userName }: DashboardShellP
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-[100] focus:p-4 focus:bg-background">
         メインコンテンツへスキップ
       </a>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen overflow-hidden print:h-auto print:overflow-visible print:block">
         <Sidebar
           userRole={userRole}
           userName={userName}
@@ -29,9 +29,9 @@ export function DashboardShell({ children, userRole, userName }: DashboardShellP
           toggleCollapse={sidebarState.toggleCollapse}
           closeMobile={sidebarState.closeMobile}
         />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden print:overflow-visible">
           <Header toggleMobile={sidebarState.toggleMobile} />
-          <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6">
+          <main id="main-content" className="flex-1 overflow-y-auto p-4 md:p-6 print:p-0 print:overflow-visible">
             {children}
           </main>
         </div>

@@ -38,6 +38,7 @@ npm run db:studio        # Open Prisma Studio
 - UI labels, error messages in Server Actions, and most user-facing text are in **Japanese**
 - Code (variable names, comments in code) is in **English**, except for domain-specific constants
 - The dev server runs on **port 3433** (not the default 3000)
+- **OCR** uses PaddleOCR via `@gutenye/ocr-node` (ONNX, no Python). Runs as child process to avoid Turbopack bundler issues. See `staffing-os/CLAUDE.md` OCR section for full details.
 
 <!-- ANTIGRAVITY-START -->
 

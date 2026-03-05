@@ -47,6 +47,12 @@ enum VisaStatus {
   TECHNICAL_INTERN_3
   SPECIFIED_SKILLED_1
   SPECIFIED_SKILLED_2
+  ENGINEER_HUMANITIES
+  CULTURAL_ACTIVITIES
+  HIGHLY_SKILLED_1
+  HIGHLY_SKILLED_2
+  INTRA_COMPANY_TRANSFER
+  NURSING_CARE
   STUDENT
   DEPENDENT
   OTHER
@@ -122,6 +128,7 @@ model User {
 
 model Candidate {
   id        String          @id @default(cuid())
+  legacyId  Int?            @unique // 履歴書ID from Access DB
   status    CandidateStatus @default(PENDING)
   version   Int             @default(1)
   createdAt DateTime        @default(now())
@@ -146,6 +153,7 @@ model Candidate {
   dominantHand String?  @db.VarChar(10)
   visionLeft  Float?
   visionRight Float?
+  spouse      String?   @db.VarChar(3) // 配偶者: 有/無
 
   // ===== 連絡先 (Contact) =====
   postalCode     String? @db.VarChar(8)
@@ -163,6 +171,7 @@ model Candidate {
   residenceCardNumber String?    @db.VarChar(20)
   residenceCardExpiry DateTime?  @db.Date
   visaStatus          VisaStatus?
+  visaStatusOther     String?    @db.VarChar(100)
   visaExpiry          DateTime?  @db.Date
 
   // ===== 写真 (Photo) =====
@@ -179,6 +188,7 @@ model Candidate {
   expMachining  Boolean @default(false)
   expCleaning   Boolean @default(false)
   expCooking    Boolean @default(false)
+  expLineLeader Boolean @default(false) // ラインリーダー
   expOther      String? @db.VarChar(200)
 
   // ===== 言語 (Languages) =====
@@ -192,6 +202,7 @@ model Candidate {
   hasForkliftLicense Boolean @default(false)
   hasCraneLicense    Boolean @default(false)
   hasWeldingCert     Boolean @default(false)
+  hasTamakake        Boolean @default(false) // 玉掛
 
   // ===== 弁当・アレルギー (Preferences) =====
   bentoPreference String? @db.VarChar(100)
@@ -213,6 +224,7 @@ model Candidate {
   timeInJapan           String?    @db.VarChar(10)
   mobile                String?    @db.VarChar(20)
   address3              String?    @db.VarChar(100)
+  registeredAddress     String?    @db.VarChar(200) // 登録住所 (registered address, may differ from current)
   uniformSize           String?    @db.VarChar(5)
   waist                 String?    @db.VarChar(10)
   safetyShoes           String?    @db.VarChar(3)
@@ -233,6 +245,16 @@ model Candidate {
   commuteMethod         String?    @db.VarChar(20)
   commuteTimeMin        String?    @db.VarChar(10)
   lunchPref             String?    @db.VarChar(10)
+
+  // Campos de examen JLPT (能力試験)
+  jlptExamTaken         Boolean    @default(false) // 能力試験受験
+  jlptExamDate          String?    @db.VarChar(20)  // 能力試験受験日付
+  jlptExamScore         String?    @db.VarChar(20)  // 能力試験受験点数
+  jlptExamPlanned       DateTime?  @db.Date          // 能力試験受験受験予定
+
+  // Campos de test antígeno COVID
+  antigenTestResult     String?    @db.VarChar(10)  // 簡易抗原検査キット (陰性/陽性)
+  antigenTestDate       DateTime?  @db.Date          // 簡易抗原検査実施日
 
   // ===== Relations =====
   educationHistory EducationHistory[]

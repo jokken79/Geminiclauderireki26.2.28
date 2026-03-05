@@ -7,18 +7,19 @@ import { CandidateList } from "@/components/candidates/candidate-list"
 export default async function CandidatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; status?: string; page?: string }>
+  searchParams: Promise<{ search?: string; status?: string; page?: string; pageSize?: string }>
 }) {
   const params = await searchParams
   const search = params.search || ""
   const status = params.status as "PENDING" | "APPROVED" | "REJECTED" | "HIRED" | "WITHDRAWN" | undefined
   const page = Number(params.page) || 1
+  const pageSize = [24, 48, 96].includes(Number(params.pageSize)) ? Number(params.pageSize) : 24
 
   const { candidates, total } = await getCandidates({
     search: search || undefined,
     status,
     page,
-    pageSize: 20,
+    pageSize,
   })
 
   return (
@@ -42,6 +43,7 @@ export default async function CandidatesPage({
         candidates={candidates}
         total={total}
         currentPage={page}
+        pageSize={pageSize}
         search={search}
         status={status}
       />

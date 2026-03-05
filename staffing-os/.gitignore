@@ -44,3 +44,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# OCR trained data (large binaries)
+*.traineddata
+
+# Legacy import data (photos and JSON exports)
+/prisma/legacy-import/photos/
+/prisma/legacy-import/candidates.json
+/prisma/legacy-import/import-errors.json

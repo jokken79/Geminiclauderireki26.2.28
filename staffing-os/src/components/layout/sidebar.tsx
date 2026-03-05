@@ -160,7 +160,7 @@ export function Sidebar({
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden md:block h-screen border-r transition-all duration-300",
+          "hidden md:block h-screen border-r transition-all duration-300 print:!hidden",
           isCollapsed ? "w-[72px]" : "w-64"
         )}
       >

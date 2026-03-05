@@ -83,10 +83,13 @@ export const step3Schema = z.object({
   residenceCardExpiry: optionalDateSchema,
   visaStatus: z.enum([
     "PERMANENT_RESIDENT", "SPOUSE_OF_JAPANESE", "LONG_TERM_RESIDENT",
-    "DESIGNATED_ACTIVITIES", "TECHNICAL_INTERN_1", "TECHNICAL_INTERN_2",
+    "DESIGNATED_ACTIVITIES", "ENGINEER_HUMANITIES", "HIGHLY_SKILLED_1",
+    "HIGHLY_SKILLED_2", "INTRA_COMPANY_TRANSFER", "NURSING_CARE",
+    "CULTURAL_ACTIVITIES", "TECHNICAL_INTERN_1", "TECHNICAL_INTERN_2",
     "TECHNICAL_INTERN_3", "SPECIFIED_SKILLED_1", "SPECIFIED_SKILLED_2",
     "STUDENT", "DEPENDENT", "OTHER",
   ]).optional().or(z.literal("")),
+  visaStatusOther: z.string().max(100).optional().or(z.literal("")),
   visaExpiry: optionalDateSchema,
 })
 
@@ -112,6 +115,7 @@ export const step6Schema = z.object({
   expMachining: z.boolean().default(false),
   expCleaning: z.boolean().default(false),
   expCooking: z.boolean().default(false),
+  expLineLeader: z.boolean().default(false),
   expOther: z.string().max(200).optional().or(z.literal("")),
   qualifications: z.array(qualificationSchema).default([]),
   hasDriverLicense: z.boolean().default(false),
@@ -119,6 +123,7 @@ export const step6Schema = z.object({
   hasForkliftLicense: z.boolean().default(false),
   hasCraneLicense: z.boolean().default(false),
   hasWeldingCert: z.boolean().default(false),
+  hasTamakake: z.boolean().default(false),
 })
 
 // Step 7: 家族
@@ -149,6 +154,8 @@ export const step8Schema = z.object({
 // ===== Rirekisho extra fields schema =====
 export const rirekishoSchema = z.object({
   // Campos nuevos — Rirekisho Form
+  spouse: z.string().max(3).optional(),
+  registeredAddress: z.string().max(200).optional(),
   receptionDate: z.string().optional(),
   timeInJapan: z.string().optional(),
   mobile: z.string().optional(),

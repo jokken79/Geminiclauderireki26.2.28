@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Upload, ScanLine, Edit, ArrowRight } from "lucide-react"
+import { Upload, ScanLine, Edit, ArrowRight, CreditCard, Car } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,13 +11,17 @@ import { Label } from "@/components/ui/label"
 import { runOcr } from "@/actions/ocr"
 import type { OcrExtractedFields } from "@/services/ocr-service"
 
+type DocumentType = "zairyu_card" | "driver_license" | "unknown"
+
 export function OcrScanner() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [ocrResult, setOcrResult] = useState<OcrExtractedFields | null>(null)
-  const [provider, setProvider] = useState<string>("")
+  const [documentType, setDocumentType] = useState<DocumentType>("unknown")
   const [confidence, setConfidence] = useState<number>(0)
+  const [rawText, setRawText] = useState<string>("")
+  const [showRawText, setShowRawText] = useState(false)
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -32,6 +36,7 @@ export function OcrScanner() {
     reader.onloadend = () => {
       setImagePreview(reader.result as string)
       setOcrResult(null)
+      setRawText("")
     }
     reader.readAsDataURL(file)
   }
@@ -42,56 +47,84 @@ export function OcrScanner() {
     startTransition(async () => {
       const result = await runOcr(imagePreview)
 
+      if (result.rawText) setRawText(result.rawText)
+
       if (!result.success) {
         toast.error(result.error || "OCR処理に失敗しました")
         return
       }
 
       setOcrResult(result.fields)
-      setProvider(result.provider)
+      setDocumentType(result.documentType)
       setConfidence(result.confidence)
-      toast.success(`${result.provider}でスキャン完了`)
+
+      const hasFields = Object.values(result.fields).some(v => v)
+      const typeLabel = result.documentType === "zairyu_card" ? "在留カード"
+        : result.documentType === "driver_license" ? "免許証" : "書類"
+
+      if (hasFields) {
+        toast.success(`${typeLabel}のスキャン完了（信頼度: ${Math.round(result.confidence * 100)}%）`)
+      } else {
+        toast.warning("テキストは読み取れましたが、フィールドを自動抽出できませんでした。認識テキストを確認してください。")
+      }
     })
   }
 
-  const handleCreateCandidate = () => {
+  const handleApplyToForm = () => {
     if (!ocrResult) return
 
-    // Build query params from OCR result to pre-fill the candidate form
     const params = new URLSearchParams()
-    if (ocrResult.lastNameKanji) params.set("lastNameKanji", ocrResult.lastNameKanji)
-    if (ocrResult.firstNameKanji) params.set("firstNameKanji", ocrResult.firstNameKanji)
-    if (ocrResult.lastNameFurigana) params.set("lastNameFurigana", ocrResult.lastNameFurigana)
-    if (ocrResult.firstNameFurigana) params.set("firstNameFurigana", ocrResult.firstNameFurigana)
-    if (ocrResult.birthDate) params.set("birthDate", ocrResult.birthDate)
-    if (ocrResult.nationality) params.set("nationality", ocrResult.nationality)
-    if (ocrResult.phone) params.set("phone", ocrResult.phone)
-    if (ocrResult.email) params.set("email", ocrResult.email)
-    if (ocrResult.postalCode) params.set("postalCode", ocrResult.postalCode)
-    if (ocrResult.prefecture) params.set("prefecture", ocrResult.prefecture)
-    if (ocrResult.city) params.set("city", ocrResult.city)
-    if (ocrResult.addressLine1) params.set("addressLine1", ocrResult.addressLine1)
+    const fieldMap: Record<string, string | undefined> = {
+      lastNameKanji: ocrResult.lastNameKanji,
+      firstNameKanji: ocrResult.firstNameKanji,
+      lastNameFurigana: ocrResult.lastNameFurigana,
+      firstNameFurigana: ocrResult.firstNameFurigana,
+      lastNameRomaji: ocrResult.lastNameRomaji,
+      firstNameRomaji: ocrResult.firstNameRomaji,
+      birthDate: ocrResult.birthDate,
+      gender: ocrResult.gender,
+      nationality: ocrResult.nationality,
+      postalCode: ocrResult.postalCode,
+      prefecture: ocrResult.prefecture,
+      city: ocrResult.city,
+      addressLine1: ocrResult.addressLine1,
+      phone: ocrResult.phone,
+      residenceCardNumber: ocrResult.residenceCardNumber,
+      visaStatus: ocrResult.visaStatus,
+      visaExpiry: ocrResult.visaExpiry,
+      driverLicenseType: ocrResult.driverLicenseType,
+      driverLicenseExpiry: ocrResult.driverLicenseExpiry,
+    }
+
+    for (const [key, value] of Object.entries(fieldMap)) {
+      if (value) params.set(key, value)
+    }
 
     router.push(`/candidates/new?${params.toString()}`)
   }
 
-  const renderEditableField = (label: string, field: keyof OcrExtractedFields) => {
-    const value = ocrResult?.[field] as string | undefined
-    return (
-      <div key={field}>
-        <Label className="text-xs">{label}</Label>
-        <Input
-          value={value || ""}
-          onChange={(e) => {
-            if (ocrResult) {
-              setOcrResult({ ...ocrResult, [field]: e.target.value })
-            }
-          }}
-          className="text-sm"
-        />
-      </div>
-    )
+  const updateField = (field: keyof OcrExtractedFields, value: string) => {
+    if (ocrResult) {
+      setOcrResult({ ...ocrResult, [field]: value })
+    }
   }
+
+  const EditableField = ({ label, field }: { label: string; field: keyof OcrExtractedFields }) => (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      <Input
+        value={(ocrResult?.[field] as string) || ""}
+        onChange={(e) => updateField(field, e.target.value)}
+        className="text-sm"
+      />
+    </div>
+  )
+
+  const documentTypeIcon = documentType === "zairyu_card" ? <CreditCard className="h-4 w-4" />
+    : documentType === "driver_license" ? <Car className="h-4 w-4" /> : null
+
+  const documentTypeLabel = documentType === "zairyu_card" ? "在留カード"
+    : documentType === "driver_license" ? "運転免許証" : "書類"
 
   return (
     <div className="space-y-6">
@@ -100,30 +133,31 @@ export function OcrScanner() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            履歴書アップロード
+            書類スキャン
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>履歴書の画像またはPDFを選択</Label>
+            <Label>在留カードまたは免許証の写真を選択</Label>
             <Input
               type="file"
-              accept="image/*,.pdf"
+              accept="image/*"
               onChange={handleFileUpload}
               className="mt-1"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              対応形式: JPEG, PNG, PDF（最大10MB）
+              対応形式: JPEG, PNG（最大10MB）・鮮明な写真を使用してください
             </p>
           </div>
 
           {imagePreview && (
             <div className="space-y-4">
               <div className="rounded-lg border p-2 bg-muted/30">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imagePreview}
                   alt="プレビュー"
-                  className="max-h-96 mx-auto rounded"
+                  className="max-h-72 mx-auto rounded"
                 />
               </div>
 
@@ -133,7 +167,7 @@ export function OcrScanner() {
                 className="w-full"
               >
                 <ScanLine className="mr-2 h-4 w-4" />
-                {isPending ? "スキャン中..." : "OCRスキャン実行"}
+                {isPending ? "スキャン中（初回は言語データのダウンロードに時間がかかります）..." : "スキャン実行"}
               </Button>
             </div>
           )}
@@ -149,8 +183,11 @@ export function OcrScanner() {
                 <Edit className="h-5 w-5" />
                 抽出結果（編集可能）
               </CardTitle>
-              <div className="text-xs text-muted-foreground">
-                プロバイダー: {provider} | 信頼度: {Math.round(confidence * 100)}%
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {documentTypeIcon}
+                <span>{documentTypeLabel}</span>
+                <span>|</span>
+                <span>信頼度: {Math.round(confidence * 100)}%</span>
               </div>
             </div>
           </CardHeader>
@@ -159,61 +196,75 @@ export function OcrScanner() {
             <div>
               <h4 className="text-sm font-medium border-b pb-1 mb-3">基本情報</h4>
               <div className="grid gap-3 md:grid-cols-3">
-                {renderEditableField("姓（漢字）", "lastNameKanji")}
-                {renderEditableField("名（漢字）", "firstNameKanji")}
-                {renderEditableField("生年月日", "birthDate")}
-                {renderEditableField("ふりがな（姓）", "lastNameFurigana")}
-                {renderEditableField("ふりがな（名）", "firstNameFurigana")}
-                {renderEditableField("国籍", "nationality")}
+                <EditableField label="姓（漢字）" field="lastNameKanji" />
+                <EditableField label="名（漢字）" field="firstNameKanji" />
+                <EditableField label="生年月日" field="birthDate" />
+                <EditableField label="姓（ローマ字）" field="lastNameRomaji" />
+                <EditableField label="名（ローマ字）" field="firstNameRomaji" />
+                <EditableField label="性別" field="gender" />
+                <EditableField label="国籍" field="nationality" />
               </div>
             </div>
 
-            {/* Contact */}
+            {/* Address */}
             <div>
-              <h4 className="text-sm font-medium border-b pb-1 mb-3">連絡先</h4>
+              <h4 className="text-sm font-medium border-b pb-1 mb-3">住所</h4>
               <div className="grid gap-3 md:grid-cols-3">
-                {renderEditableField("郵便番号", "postalCode")}
-                {renderEditableField("都道府県", "prefecture")}
-                {renderEditableField("市区町村", "city")}
-                {renderEditableField("住所", "addressLine1")}
-                {renderEditableField("電話番号", "phone")}
-                {renderEditableField("メール", "email")}
+                <EditableField label="郵便番号" field="postalCode" />
+                <EditableField label="都道府県" field="prefecture" />
+                <EditableField label="市区町村" field="city" />
+                <EditableField label="番地" field="addressLine1" />
+                <EditableField label="電話番号" field="phone" />
               </div>
             </div>
 
-            {/* Education */}
-            {ocrResult.education && ocrResult.education.length > 0 && (
+            {/* Immigration (在留カード) */}
+            {(documentType === "zairyu_card" || ocrResult.residenceCardNumber || ocrResult.visaStatus) && (
               <div>
-                <h4 className="text-sm font-medium border-b pb-1 mb-3">学歴</h4>
-                <div className="space-y-1">
-                  {ocrResult.education.map((ed, i) => (
-                    <div key={i} className="text-sm text-muted-foreground">
-                      {ed.year}/{ed.month} {ed.schoolName} {ed.faculty || ""} ({ed.eventType})
-                    </div>
-                  ))}
+                <h4 className="text-sm font-medium border-b pb-1 mb-3">在留情報</h4>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <EditableField label="在留カード番号" field="residenceCardNumber" />
+                  <EditableField label="在留資格" field="visaStatus" />
+                  <EditableField label="在留期限" field="visaExpiry" />
                 </div>
               </div>
             )}
 
-            {/* Work History */}
-            {ocrResult.workHistory && ocrResult.workHistory.length > 0 && (
+            {/* Driver License */}
+            {(documentType === "driver_license" || ocrResult.driverLicenseType) && (
               <div>
-                <h4 className="text-sm font-medium border-b pb-1 mb-3">職歴</h4>
-                <div className="space-y-1">
-                  {ocrResult.workHistory.map((wh, i) => (
-                    <div key={i} className="text-sm text-muted-foreground">
-                      {wh.startYear}/{wh.startMonth} - {wh.endYear ? `${wh.endYear}/${wh.endMonth}` : "現在"} {wh.companyName} ({wh.eventType})
-                    </div>
-                  ))}
+                <h4 className="text-sm font-medium border-b pb-1 mb-3">免許情報</h4>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <EditableField label="免許種類" field="driverLicenseType" />
+                  <EditableField label="有効期限" field="driverLicenseExpiry" />
+                  <EditableField label="免許番号" field="driverLicenseNumber" />
                 </div>
               </div>
             )}
 
-            {/* Create Candidate Button */}
+            {/* Raw Text Toggle (for debugging) */}
+            {rawText && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowRawText(!showRawText)}
+                  className="text-xs text-muted-foreground hover:underline"
+                >
+                  {showRawText ? "認識テキストを非表示" : "認識テキストを表示"}
+                </button>
+                {showRawText && (
+                  <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted p-3 text-xs whitespace-pre-wrap">
+                    {rawText}
+                  </pre>
+                )}
+              </div>
+            )}
+
+            {/* Apply to Form Button */}
             <div className="pt-4 border-t">
-              <Button onClick={handleCreateCandidate} className="w-full">
+              <Button onClick={handleApplyToForm} className="w-full">
                 <ArrowRight className="mr-2 h-4 w-4" />
-                この内容で候補者を作成
+                この内容で履歴書に反映
               </Button>
             </div>
           </CardContent>

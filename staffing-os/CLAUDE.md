@@ -35,7 +35,8 @@ npm run db:reset         # Reset database — DESTRUCTIVE, drops all data
 5. Start dev server: `npm run dev`
 
 Required env vars: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL` (must use port 3433 for dev).
-Optional: `AZURE_VISION_KEY`, `AZURE_VISION_ENDPOINT`, `GOOGLE_GEMINI_API_KEY`, `OPENAI_API_KEY` (for OCR), `ENCRYPTION_KEY` (for bank account encryption).
+Optional: `ENCRYPTION_KEY` (for bank account encryption).
+Note: OCR uses **PaddleOCR** (via `@gutenye/ocr-node` ONNX) locally — no cloud API keys needed. See OCR section below.
 
 ### Seed Credentials
 
@@ -48,7 +49,7 @@ After `npm run db:seed`, two users are available:
 
 ## Architecture
 
-**Stack:** Next.js 16 (App Router) + Prisma 6 + PostgreSQL 16 + Redis 7 + NextAuth 5 (beta) + TailwindCSS 4 + shadcn/ui + Zustand + react-hook-form + Zod 4 + Recharts + Vitest
+**Stack:** Next.js 16 (App Router) + Prisma 6 + PostgreSQL 16 + Redis 7 + NextAuth 5 (beta) + TailwindCSS 4 + shadcn/ui + Zustand + react-hook-form + Zod 4 + Recharts + Vitest + @gutenye/ocr-node (PaddleOCR ONNX) + mrz
 
 **Path alias:** `@/*` maps to `./src/*`
 
@@ -118,7 +119,7 @@ staffing-os/
 │   │       ├── ukeoi.ts
 │   │       └── shared.ts           — Postal code, phone, email patterns
 │   ├── services/
-│   │   ├── ocr-service.ts          — Multi-provider OCR with circuit breaker
+│   │   ├── ocr-service.ts          — Local OCR with Tesseract.js + MRZ parser
 │   │   └── skill-sheet-service.ts  — Anonymized skill sheet generation
 │   ├── test/
 │   │   └── setup.ts                — Vitest setup (jest-dom, Next.js mocks)
@@ -130,7 +131,9 @@ staffing-os/
 ├── docker/                         — Docker support files (postgres init.sql)
 ├── nginx/                          — Nginx config for production reverse proxy
 ├── public/                         — Static assets (UNS company logo)
-├── scripts/                        — Utility scripts (start-app.bat)
+├── scripts/
+│   ├── ocr-worker.mjs              — OCR worker (PaddleOCR, runs as child process)
+│   └── start-app.bat               — Utility script
 ├── Dockerfile                      — Multi-stage production Docker build
 ├── docker-compose.yml              — Development (PostgreSQL + Redis)
 └── docker-compose.prod.yml         — Production (app + db + redis + nginx)
@@ -196,6 +199,7 @@ Action files: `candidates.ts`, `companies.ts`, `hakenshain.ts`, `ukeoi.ts`, `doc
 - `users:manage` → ADMIN (level 7)
 - `hakenshain/ukeoi:read` → KANRININSHA (level 3)
 - `hakenshain/ukeoi:create` → TANTOSHA (level 5)
+- `ocr:scan` → TANTOSHA (level 5)
 
 Use `requireRole()` from `src/lib/rbac.ts` to enforce role checks inside Server Actions.
 
@@ -207,7 +211,9 @@ Use `requireRole()` from `src/lib/rbac.ts` to enforce role checks inside Server 
 
 **Supporting models:** `EducationHistory`, `WorkHistory`, `Qualification`, `FamilyMember`
 
-**Key enums:** `UserRole` (8 roles), `CandidateStatus` (5 states), `VisaStatus` (12 Japanese immigration statuses), `DocumentType` (9 types), `AssignmentStatus` (4 states), `AlertType` (5 types), `JlptLevel` (N1-N5 + NONE)
+**Key enums:** `UserRole` (8 roles), `CandidateStatus` (5 states), `VisaStatus` (18 Japanese immigration statuses), `DocumentType` (9 types), `AssignmentStatus` (4 states), `AlertType` (5 types), `JlptLevel` (N1-N5 + NONE)
+
+**VisaStatus enum** includes: `PERMANENT_RESIDENT`, `SPOUSE_OF_JAPANESE`, `LONG_TERM_RESIDENT`, `DESIGNATED_ACTIVITIES`, `ENGINEER_HUMANITIES` (技術・人文知識・国際業務), `CULTURAL_ACTIVITIES` (文化活動), `HIGHLY_SKILLED_1/2` (高度専門職), `INTRA_COMPANY_TRANSFER` (企業内転勤), `NURSING_CARE` (介護), `TECHNICAL_INTERN_1/2/3`, `SPECIFIED_SKILLED_1/2`, `STUDENT`, `DEPENDENT`, `OTHER`. When `OTHER` is selected, a free-text field `visaStatusOther` stores custom visa types.
 
 ### Candidate Model
 
@@ -245,13 +251,63 @@ The `Candidate` model is the central entity with 80+ fields organized into secti
 
 ## OCR Integration
 
-`src/services/ocr-service.ts` implements a multi-provider circuit breaker:
-1. Azure Computer Vision (primary)
-2. Google Gemini Vision (backup)
-3. OpenAI Vision (secondary)
-4. Demo mode (no API keys required — for development)
+**Local OCR** using **PaddleOCR** (via `@gutenye/ocr-node` ONNX runtime). No cloud API keys, no Python needed.
 
-Extracts Japanese names, birth dates, visa info from document images.
+Previously used Tesseract.js but it had very low accuracy (~10-32%) for Japanese ID documents. PaddleOCR achieves **78-97% accuracy** on the same images. The legacy `src/services/ocr-service.ts` (Tesseract) is still in the codebase but no longer used.
+
+### Architecture: Child Process Pattern
+
+**CRITICAL:** PaddleOCR (and Tesseract.js) cannot run inside Next.js Turbopack server actions because the bundler breaks ONNX/WASM worker threads. The solution is a **child process worker**:
+
+```
+Browser → Server Action (src/actions/ocr.ts)
+             → child_process.execFile("node", ["scripts/ocr-worker.mjs"])
+                  → @gutenye/ocr-node (PaddleOCR ONNX)
+                  → stdout: JSON result
+```
+
+The server action sends image base64 via **stdin** and receives JSON via **stdout**. This pattern works with any bundler (Turbopack, Webpack, Vite) because the worker runs as raw Node.js.
+
+### Supported Documents
+- **在留カード (Residence Card):** Extracts name (romaji), nationality, birth date, gender, visa status (18 types), visa expiry, residence card number, address (prefecture + city). Also attempts MRZ zone parsing (TD1 format) via `mrz` package.
+- **免許証 (Driver's License):** Extracts name (kanji), prefecture, city, license number (12 digits), license type, expiry date. Handles 和暦→西暦 (Showa/Heisei/Reiwa) conversion.
+
+### OCR Flow
+1. User uploads photo at `/ocr` (requires TANTOSHA role)
+2. Server action spawns `scripts/ocr-worker.mjs` as child process
+3. PaddleOCR runs text detection + recognition (ONNX, ~1 second)
+4. Document type auto-detected (在留カード vs 免許証) from recognized text
+5. Field extraction via regex patterns on OCR text lines
+6. For 在留カード, MRZ zone is also parsed with `mrz` package
+7. User reviews/edits extracted fields in the UI
+8. Click "この内容で履歴書に反映" → navigates to `/candidates/new?params...`
+9. RirekishoForm reads `searchParams` and auto-fills all matching fields
+
+### Key Files
+- `scripts/ocr-worker.mjs` — **Main OCR engine**: PaddleOCR + field extraction + MRZ parsing. Runs as standalone Node.js process.
+- `src/actions/ocr.ts` — Server action: spawns worker via `child_process.execFile`, sends base64 via stdin, receives JSON via stdout. 60s timeout.
+- `src/components/ocr/ocr-scanner.tsx` — Upload UI, scan button, editable result fields, confidence display, raw text toggle, "apply to form" button.
+- `src/services/ocr-service.ts` — Legacy Tesseract.js service (kept for reference, not actively used).
+- `src/components/candidates/rirekisho-form.tsx` — Reads OCR data from URL query params via `useSearchParams()`.
+
+### npm Packages for OCR
+- `@gutenye/ocr-node` — PaddleOCR ONNX wrapper for Node.js (detection + recognition)
+- `onnxruntime-node` — ONNX Runtime native bindings (peer dependency)
+- `mrz` — Machine Readable Zone parser for ID documents
+- `tesseract.js` — Legacy OCR (kept as fallback, low accuracy for Japanese)
+
+### next.config.ts
+These packages must be listed in `serverExternalPackages` to prevent Turbopack from bundling them:
+```ts
+serverExternalPackages: ["tesseract.js", "@gutenye/ocr-node", "onnxruntime-node"]
+```
+
+### Reusing This OCR in Another Project
+1. `npm install @gutenye/ocr-node onnxruntime-node mrz`
+2. Copy `scripts/ocr-worker.mjs` — it's self-contained
+3. From your server action or API route, call it via `child_process.execFile("node", ["scripts/ocr-worker.mjs"])`, send base64 image via stdin, read JSON from stdout
+4. First run downloads PaddleOCR ONNX models (~4MB) to `~/.cache/gutenye-ocr/`
+5. Add `@gutenye/ocr-node` and `onnxruntime-node` to `serverExternalPackages` in Next.js config
 
 ## Candidate Forms
 
@@ -263,6 +319,14 @@ Two form patterns exist for candidate creation:
 
 Each step has matching Zod schemas in `src/lib/validators/candidate.ts`.
 
+### RirekishoForm Features
+- **Photo** positioned on the right side (traditional Japanese 履歴書 layout)
+- **Print-optimized:** Sidebar and header are hidden via `print:hidden`. The form renders as a clean A4 page with `@media print` styles. The company logo uses `mix-blend-multiply` for transparent background.
+- **Select-based measurements:** Height (145-190cm), weight (35-105kg), waist (55-110cm), shoe size (22.0-30.0cm), vision (0.0-1.5 scale) — all with units in options (e.g., `162cm`, `60kg`)
+- **OCR integration:** Reads URL `searchParams` to pre-fill fields from OCR scan results
+- **Postal code auto-lookup:** Uses `zipcloud.ibsnet.co.jp` API to auto-fill prefecture/city
+- **Visa selector:** 18 visa types + free-text "その他" input for unlisted visas
+
 ## Docker / Production
 
 - `next.config.ts` uses `output: "standalone"` for Docker
@@ -273,12 +337,19 @@ Each step has matching Zod schemas in `src/lib/validators/candidate.ts`.
 
 ## Testing
 
-Vitest is configured with:
-- Environment: jsdom
-- Setup: `src/test/setup.ts` (mocks `next/navigation`, `ResizeObserver`)
+```bash
+npm run test                                         # Vitest in watch mode (interactive dev)
+npx vitest run                                       # Single run (CI-friendly, no watch)
+npx vitest run src/lib/__tests__/wareki.test.ts      # Run a single test file
+npx vitest run src/lib/validators                    # Run all tests in a directory
+npx vitest --coverage                                # Run with v8 coverage report
+```
+
+- Environment: jsdom with `globals: true` (no need to import `describe`/`it`/`expect`)
+- Setup: `src/test/setup.ts` — mocks `next/navigation` (useRouter, usePathname, useSearchParams) and `ResizeObserver`
 - Path alias: `@` → `./src`
-- Coverage: v8 provider
-- Existing tests in `src/components/shared/__tests__/`
+- Coverage excludes `src/components/ui/**` (shadcn/ui primitives)
+- Tests use co-located `__tests__/` directories next to the code they test (e.g., `src/lib/__tests__/`, `src/actions/__tests__/`, `src/services/__tests__/`)
 
 ## Coding Guidelines
 

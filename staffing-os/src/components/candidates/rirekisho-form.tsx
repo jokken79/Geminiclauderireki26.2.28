@@ -1,13 +1,20 @@
 "use client"
 
-import React, { useRef, useTransition, useState } from "react"
+import React, { useRef, useTransition, useState, useEffect } from "react"
 import { useForm, useFieldArray, type SubmitHandler } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { candidateSchema, type CandidateFormData } from "@/lib/validators/candidate"
-import { createCandidate } from "@/actions/candidates"
+import { createCandidate, updateCandidate } from "@/actions/candidates"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { LEVELS } from "./rirekisho-constants"
+
+interface RirekishoFormProps {
+  mode?: "create" | "edit"
+  candidateId?: string
+  defaultValues?: Partial<CandidateFormData>
+  defaultPhotoUrl?: string
+}
 
 const tableFieldClass =
   "w-full bg-transparent p-0 outline-none focus:bg-sky-50/50 rounded-[2px] px-1 text-[9pt]"
@@ -28,54 +35,64 @@ const VISA_STATUS_OPTIONS = [
   { value: "PERMANENT_RESIDENT", label: "永住者" },
   { value: "LONG_TERM_RESIDENT", label: "定住者" },
   { value: "SPOUSE_OF_JAPANESE", label: "日本人の配偶者等" },
-  { value: "DESIGNATED_ACTIVITIES", label: "特定活動（家族等）" },
+  { value: "DESIGNATED_ACTIVITIES", label: "特定活動" },
+  { value: "ENGINEER_HUMANITIES", label: "技術・人文知識・国際業務" },
+  { value: "HIGHLY_SKILLED_1", label: "高度専門職1号" },
+  { value: "HIGHLY_SKILLED_2", label: "高度専門職2号" },
+  { value: "INTRA_COMPANY_TRANSFER", label: "企業内転勤" },
+  { value: "NURSING_CARE", label: "介護" },
+  { value: "CULTURAL_ACTIVITIES", label: "文化活動" },
   { value: "TECHNICAL_INTERN_1", label: "技能実習1号" },
   { value: "TECHNICAL_INTERN_2", label: "技能実習2号" },
   { value: "TECHNICAL_INTERN_3", label: "技能実習3号" },
   { value: "SPECIFIED_SKILLED_1", label: "特定技能1号" },
   { value: "SPECIFIED_SKILLED_2", label: "特定技能2号" },
-  { value: "STUDENT", label: "留学（要資格外活動許可）" },
-  { value: "DEPENDENT", label: "家族滞在（要資格外活動許可）" },
-  { value: "OTHER", label: "その他" },
+  { value: "STUDENT", label: "留学（資格外活動許可）" },
+  { value: "DEPENDENT", label: "家族滞在（資格外活動許可）" },
+  { value: "OTHER", label: "その他（下記入力）" },
 ] as const
 
-export function RirekishoForm() {
+export function RirekishoForm({ mode = "create", candidateId, defaultValues: propDefaults, defaultPhotoUrl }: RirekishoFormProps = {}) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
   const photoRef = useRef<HTMLInputElement>(null)
-  const [photoDataUrl, setPhotoDataUrl] = useState("")
+  const [photoDataUrl, setPhotoDataUrl] = useState(defaultPhotoUrl || "")
 
-  const form = useForm({
-    resolver: zodResolver(candidateSchema),
-    defaultValues: {
-      lastNameKanji: "",
-      firstNameKanji: "",
-      lastNameFurigana: "",
-      firstNameFurigana: "",
-      lastNameRomaji: "",
-      firstNameRomaji: "",
-      birthDate: "",
-      nationality: "",
-      workHistory: [],
-      familyMembers: [],
-      qualifications: [],
-      jlptLevel: "NONE",
-      lunchPref: "昼/夜",
-      expWelding: false,
-      expForklift: false,
-      expLineWork: false,
-      expAssembly: false,
-      expPacking: false,
-      expInspection: false,
-      expPainting: false,
-      expMachining: false,
-      expCleaning: false,
-      expCooking: false,
-      hasDriverLicense: false,
-      hasForkliftLicense: false,
-      hasCraneLicense: false,
-      hasWeldingCert: false,
-    },
+  const emptyDefaults: Partial<CandidateFormData> = {
+    lastNameKanji: "",
+    firstNameKanji: "",
+    lastNameFurigana: "",
+    firstNameFurigana: "",
+    lastNameRomaji: "",
+    firstNameRomaji: "",
+    birthDate: "",
+    nationality: "",
+    workHistory: [],
+    familyMembers: [],
+    qualifications: [],
+    jlptLevel: "NONE",
+    lunchPref: "昼/夜",
+    expWelding: false,
+    expForklift: false,
+    expLineWork: false,
+    expAssembly: false,
+    expPacking: false,
+    expInspection: false,
+    expPainting: false,
+    expMachining: false,
+    expCleaning: false,
+    expCooking: false,
+    hasDriverLicense: false,
+    hasForkliftLicense: false,
+    hasCraneLicense: false,
+    hasWeldingCert: false,
+  }
+
+  const form = useForm<CandidateFormData>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(candidateSchema) as any,
+    defaultValues: { ...emptyDefaults, ...propDefaults } as CandidateFormData,
   })
 
   const { register, handleSubmit, watch, control } = form
@@ -90,7 +107,49 @@ export function RirekishoForm() {
     name: "familyMembers",
   })
 
+  // Pre-fill form from OCR query params (only in create mode)
+  useEffect(() => {
+    if (mode === "edit") return
+    if (!searchParams.toString()) return
+
+    const ocrFields: Record<string, string> = {
+      lastNameKanji: "lastNameKanji",
+      firstNameKanji: "firstNameKanji",
+      lastNameFurigana: "lastNameFurigana",
+      firstNameFurigana: "firstNameFurigana",
+      lastNameRomaji: "lastNameRomaji",
+      firstNameRomaji: "firstNameRomaji",
+      birthDate: "birthDate",
+      gender: "gender",
+      nationality: "nationality",
+      postalCode: "postalCode",
+      prefecture: "prefecture",
+      city: "city",
+      addressLine1: "addressLine1",
+      phone: "phone",
+      residenceCardNumber: "residenceCardNumber",
+      visaStatus: "visaStatus",
+      visaExpiry: "visaExpiry",
+      driverLicenseType: "driverLicenseType",
+      driverLicenseExpiry: "licenseExpiry",
+    }
+
+    let filled = false
+    for (const [param, formField] of Object.entries(ocrFields)) {
+      const value = searchParams.get(param)
+      if (value) {
+        form.setValue(formField as keyof CandidateFormData, value as never)
+        filled = true
+      }
+    }
+
+    if (filled) {
+      toast.success("OCRデータを反映しました")
+    }
+  }, [searchParams, form])
+
   const birthDate = watch("birthDate")
+  const visaStatus = watch("visaStatus")
 
   async function lookupPostalCode(postalCode: string) {
     const digits = postalCode.replace(/[^0-9]/g, "")
@@ -109,9 +168,12 @@ export function RirekishoForm() {
 
   const onSubmit: SubmitHandler<CandidateFormData> = (data) => {
     startTransition(async () => {
-      const result = await createCandidate({ ...data, photoDataUrl } as CandidateFormData)
+      const payload = { ...data, photoDataUrl } as CandidateFormData
+      const result = mode === "edit" && candidateId
+        ? await updateCandidate(candidateId, payload)
+        : await createCandidate(payload)
       if (result && "success" in result && result.success) {
-        toast.success("登録が完了しました")
+        toast.success(mode === "edit" ? "更新が完了しました" : "登録が完了しました")
         router.push("/candidates")
       } else {
         const errResult = result as { error?: string } | undefined
@@ -138,7 +200,7 @@ export function RirekishoForm() {
           disabled={isPending}
           className="rounded-md bg-emerald-600 px-6 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
-          {isPending ? "保存中..." : "保存 (登録)"}
+          {isPending ? "保存中..." : mode === "edit" ? "保存 (更新)" : "保存 (登録)"}
         </button>
         <button
           type="button"
@@ -177,22 +239,6 @@ export function RirekishoForm() {
 
           {/* Section 1: Basic Info + Photo */}
           <div className="mb-2 flex gap-2">
-            <div className="flex flex-col items-center" style={{ width: "28mm" }}>
-              <div
-                className="grid cursor-pointer place-items-center overflow-hidden border border-slate-400 bg-slate-50 hover:bg-slate-100"
-                style={{ width: "28mm", height: "36mm" }}
-                onClick={() => photoRef.current?.click()}
-                title="クリックして写真を選択"
-              >
-                {photoDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photoDataUrl} className="h-full w-full object-cover" alt="写真" />
-                ) : (
-                  <span className="text-[7pt] text-slate-400">写真</span>
-                )}
-              </div>
-            </div>
-
             <table className="w-full table-fixed border-collapse border border-slate-400 text-[9pt]">
               <colgroup>
                 <col style={{ width: "10%" }} /><col style={{ width: "18%" }} />
@@ -280,12 +326,14 @@ export function RirekishoForm() {
                 <tr>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-left text-[8pt] font-bold">住所</th>
                   <td colSpan={7} className="border border-slate-400 px-1 py-1">
-                    <div className="flex gap-3">
-                      <input {...register("city")} placeholder="市区町村" className={`${tableFieldClass} flex-grow`} />
-                      <div className="border-l border-slate-300 pl-3 flex-shrink-0 w-24">
+                    <div className="flex gap-0">
+                      <div className="flex-[3] min-w-0">
+                        <input {...register("city")} placeholder="市区町村" className={tableFieldClass} />
+                      </div>
+                      <div className="border-l border-slate-300 px-1 flex-[2] min-w-0 print:border-none print:px-0">
                         <input {...register("addressLine1")} placeholder="番地" className={tableFieldClass} />
                       </div>
-                      <div className="border-l border-slate-300 pl-3 flex-grow">
+                      <div className="border-l border-slate-300 px-1 flex-[3] min-w-0 print:border-none print:px-0">
                         <input {...register("addressLine2")} placeholder="建物名・部屋番号" className={tableFieldClass} />
                       </div>
                     </div>
@@ -293,6 +341,22 @@ export function RirekishoForm() {
                 </tr>
               </tbody>
             </table>
+
+            <div className="flex flex-col items-center" style={{ width: "28mm" }}>
+              <div
+                className="grid cursor-pointer place-items-center overflow-hidden border border-slate-400 bg-slate-50 hover:bg-slate-100"
+                style={{ width: "28mm", height: "36mm" }}
+                onClick={() => photoRef.current?.click()}
+                title="クリックして写真を選択"
+              >
+                {photoDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={photoDataUrl} className="h-full w-full object-cover" alt="写真" />
+                ) : (
+                  <span className="text-[7pt] text-slate-400">写真</span>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Section 2: Emergency Contact */}
@@ -323,24 +387,33 @@ export function RirekishoForm() {
             <div className="mb-1 text-sm font-bold text-slate-800">書類関係</div>
             <table className="w-full table-fixed border-collapse border border-slate-400 text-[9pt]">
               <colgroup>
-                <col style={{ width: "12%" }} /><col style={{ width: "14%" }} />
-                <col style={{ width: "12%" }} /><col style={{ width: "12%" }} />
-                <col style={{ width: "14%" }} /><col style={{ width: "12%" }} />
-                <col style={{ width: "12%" }} /><col style={{ width: "12%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "26%" }} />
               </colgroup>
               <tbody>
                 <tr>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">在留種類</th>
-                  <td colSpan={2} className="border border-slate-400 px-1 py-1">
+                  <td className="border border-slate-400 px-1 py-1">
                     <select {...register("visaStatus")} className={tableFieldClass}>
                       <option value="">選択</option>
                       {VISA_STATUS_OPTIONS.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
+                    {visaStatus === "OTHER" && (
+                      <input
+                        {...register("visaStatusOther")}
+                        placeholder="在留資格を入力"
+                        className={`${tableFieldClass} mt-0.5 border-b border-slate-300`}
+                      />
+                    )}
                   </td>
-                  <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">在留期間</th>
-                  <td colSpan={2} className="border border-slate-400 px-1 py-1">
+                  <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">期限</th>
+                  <td className="border border-slate-400 px-1 py-1">
                     <input type="date" {...register("visaExpiry")} className={tableFieldClass} />
                   </td>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">カード番号</th>
@@ -350,7 +423,7 @@ export function RirekishoForm() {
                 </tr>
                 <tr>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">パスポート</th>
-                  <td colSpan={2} className="border border-slate-400 px-1 py-1">
+                  <td className="border border-slate-400 px-1 py-1">
                     <input {...register("passportNumber")} className={tableFieldClass} />
                   </td>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">期限</th>
@@ -365,11 +438,10 @@ export function RirekishoForm() {
                       <option value="無">無</option>
                     </select>
                   </td>
-                  <td className="border-none" />
                 </tr>
                 <tr>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">免許種類</th>
-                  <td colSpan={2} className="border border-slate-400 px-1 py-1">
+                  <td className="border border-slate-400 px-1 py-1">
                     <select {...register("driverLicenseType")} className={tableFieldClass}>
                       <option value="">選択</option>
                       {LEVELS.licenseTypes.map(v => <option key={v} value={v}>{v}</option>)}
@@ -387,7 +459,6 @@ export function RirekishoForm() {
                       <option value="無">無</option>
                     </select>
                   </td>
-                  <td className="border-none" />
                 </tr>
               </tbody>
             </table>
@@ -395,11 +466,11 @@ export function RirekishoForm() {
 
           {/* Section 4: Language */}
           <div className="mb-2 mt-3 grid grid-cols-2 gap-2">
-            <div className="relative rounded-sm border border-slate-400 bg-white p-2">
+            <div className="relative flex items-center rounded-sm border border-slate-400 bg-white p-2">
               <span className="absolute -top-2 left-2 bg-white px-1 text-[7pt] font-bold text-slate-600">
                 日本語能力（聞く/話す）
               </span>
-              <div className="mt-1 flex flex-col gap-1">
+              <div className="mt-1 flex w-full flex-col gap-1">
                 {(["listenLevel", "speakLevel"] as const).map((field, idx) => (
                   <div key={field} className="flex items-center gap-2">
                     <span className="w-8 text-[7pt] font-bold">{idx === 0 ? "聞く" : "話す"}:</span>
@@ -484,6 +555,14 @@ export function RirekishoForm() {
                 <input type="checkbox" {...register("hasCraneLicense")} className="h-3 w-3 accent-sky-600" />
                 <span>クレーン</span>
               </label>
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <input type="checkbox" {...register("hasTamakake")} className="h-3 w-3 accent-sky-600" />
+                <span>玉掛</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <input type="checkbox" {...register("expLineLeader")} className="h-3 w-3 accent-sky-600" />
+                <span>ラインリーダー</span>
+              </label>
               <div className="flex items-center gap-1.5">
                 <span>日本語検定:</span>
                 <select {...register("jlptLevel")} className="rounded border border-slate-300 bg-white px-1 py-0.5 text-[7pt] outline-none">
@@ -508,13 +587,23 @@ export function RirekishoForm() {
             <table className="w-full table-fixed border-collapse border border-slate-400 text-[9pt]">
               <tbody>
                 <tr>
-                  <th className="w-[14%] border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">身長(cm)</th>
+                  <th className="w-[14%] border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">身長</th>
                   <td className="w-[11%] border border-slate-400 px-1 py-1">
-                    <input type="number" step="0.1" {...register("height", { valueAsNumber: true })} className={tableFieldClass} />
+                    <select {...register("height", { valueAsNumber: true })} className={tableFieldClass} defaultValue={160}>
+                      <option value="">-</option>
+                      {Array.from({ length: 46 }, (_, i) => 145 + i).map(v => (
+                        <option key={v} value={v}>{v}cm</option>
+                      ))}
+                    </select>
                   </td>
-                  <th className="w-[14%] border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">体重(kg)</th>
+                  <th className="w-[14%] border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">体重</th>
                   <td className="w-[11%] border border-slate-400 px-1 py-1">
-                    <input type="number" step="0.1" {...register("weight", { valueAsNumber: true })} className={tableFieldClass} />
+                    <select {...register("weight", { valueAsNumber: true })} className={tableFieldClass} defaultValue={60}>
+                      <option value="">-</option>
+                      {Array.from({ length: 71 }, (_, i) => 35 + i).map(v => (
+                        <option key={v} value={v}>{v}kg</option>
+                      ))}
+                    </select>
                   </td>
                   <th className="w-[14%] border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">服のサイズ</th>
                   <td className="w-[11%] border border-slate-400 px-1 py-1">
@@ -523,15 +612,25 @@ export function RirekishoForm() {
                       {LEVELS.uniformSizes.map(v => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </td>
-                  <th className="w-[14%] border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">ウエスト(cm)</th>
+                  <th className="w-[14%] border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">ウエスト</th>
                   <td className="w-[11%] border border-slate-400 px-1 py-1">
-                    <input {...register("waist")} className={tableFieldClass} />
+                    <select {...register("waist")} className={tableFieldClass}>
+                      <option value="">-</option>
+                      {Array.from({ length: 56 }, (_, i) => 55 + i).map(v => (
+                        <option key={v} value={v}>{v}cm</option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
                 <tr>
-                  <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">靴サイズ(cm)</th>
+                  <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">靴サイズ</th>
                   <td className="border border-slate-400 px-1 py-1">
-                    <input type="number" step="0.5" {...register("shoeSize", { valueAsNumber: true })} className={tableFieldClass} />
+                    <select {...register("shoeSize", { valueAsNumber: true })} className={tableFieldClass}>
+                      <option value="">-</option>
+                      {Array.from({ length: 17 }, (_, i) => 22.0 + i * 0.5).map(v => (
+                        <option key={v} value={v}>{v.toFixed(1)}cm</option>
+                      ))}
+                    </select>
                   </td>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">安全靴</th>
                   <td className="border border-slate-400 px-1 py-1">
@@ -566,12 +665,22 @@ export function RirekishoForm() {
                       <option value="無">無</option>
                     </select>
                   </td>
-                  <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">視力(左/右)</th>
+                  <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">視力</th>
                   <td className="border border-slate-400 px-1 py-1">
-                    <div className="flex gap-1">
-                      <input type="number" step="0.1" {...register("visionLeft", { valueAsNumber: true })} placeholder="左" className={tableFieldClass} />
-                      <span className="text-slate-400">/</span>
-                      <input type="number" step="0.1" {...register("visionRight", { valueAsNumber: true })} placeholder="右" className={tableFieldClass} />
+                    <div className="flex items-center justify-center gap-0">
+                      <select {...register("visionLeft", { valueAsNumber: true })} className="bg-transparent outline-none text-[8pt] w-12 text-right" style={{ padding: 0 }}>
+                        <option value="">左 -</option>
+                        {[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5].map(v => (
+                          <option key={v} value={v}>左{v.toFixed(1)}</option>
+                        ))}
+                      </select>
+                      <span className="text-slate-400 text-[8pt]">/</span>
+                      <select {...register("visionRight", { valueAsNumber: true })} className="bg-transparent outline-none text-[8pt] w-12" style={{ padding: 0 }}>
+                        <option value="">右 -</option>
+                        {[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5].map(v => (
+                          <option key={v} value={v}>右{v.toFixed(1)}</option>
+                        ))}
+                      </select>
                     </div>
                   </td>
                   <th className="border border-slate-400 bg-slate-50 px-1 py-1 text-[8pt] font-bold">利き腕</th>
@@ -795,7 +904,7 @@ export function RirekishoForm() {
             <div className="relative flex items-center justify-center pb-2 pt-3">
               <div className="flex items-center gap-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/UNSLogo.png" alt="UNS Logo" className="h-12 w-auto print:h-8" />
+                <img src="/UNSLogo.png" alt="UNS Logo" className="h-12 w-auto print:h-8 mix-blend-multiply" />
                 <div className="flex flex-col text-left">
                   <div className="whitespace-nowrap text-sm font-black tracking-wider text-slate-800">
                     ユニバーサル企画株式会社
@@ -824,7 +933,9 @@ export function RirekishoForm() {
           .company-footer { margin-top: auto !important; }
           table { page-break-inside: avoid !important; width: 100% !important; }
           th { background-color: #f1f5f9 !important; color: black !important; font-weight: 700 !important; }
-          input, select { border: none !important; background: none !important; color: black !important; -webkit-appearance: none; }
+          input, select { border: none !important; background: none !important; color: black !important; -webkit-appearance: none; font-size: 8pt !important; }
+          input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; }
+          input[type="date"] { min-width: 0 !important; width: 100% !important; }
         }
       `}</style>
     </div>
