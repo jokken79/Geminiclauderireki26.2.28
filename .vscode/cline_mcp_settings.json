@@ -3,19 +3,46 @@
     "antigravity": {
       "command": "python",
       "args": [
-        "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN/mcp-server/server.py"
+        "C:/Users/kenji/AntigravitiSkillUSN/mcp-server/server.py"
       ]
     },
     "antigravity-agents": {
       "command": "python",
       "args": [
-        "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN/.agent/mcp/agents-server.py"
+        "C:/Users/kenji/AntigravitiSkillUSN/.agent/mcp/agents-server.py"
       ]
     },
     "claude-mem": {
       "command": "node",
       "args": [
         "C:/Users/Kenji/Documents/GitHub/claude-mem/plugin/scripts/mcp-server.cjs"
+      ]
+    },
+    "context7": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    "git": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "uvx",
+        "mcp-server-git"
+      ]
+    },
+    "filesystem": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "D:/Git/Geminiclauderireki26.2.28"
       ]
     }
   }

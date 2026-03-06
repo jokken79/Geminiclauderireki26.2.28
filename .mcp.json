@@ -1,22 +1,15 @@
 {
   "mcpServers": {
-    "antigravity-remote": {
-      "type": "url",
-      "url": "https://mcp.uns-kikaku.cloud/mcp",
-      "headers": {
-        "Authorization": "Bearer Jpkken1979"
-      }
-    },
     "antigravity": {
       "command": "python",
       "args": [
-        "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN/mcp-server/server.py"
+        "C:/Users/kenji/AntigravitiSkillUSN/mcp-server/server.py"
       ]
     },
     "antigravity-agents": {
       "command": "python",
       "args": [
-        "C:/Users/Kenji/Documents/GitHub/AntigravitiSkillUSN/.agent/mcp/agents-server.py"
+        "C:/Users/kenji/AntigravitiSkillUSN/.agent/mcp/agents-server.py"
       ]
     },
     "claude-mem": {
@@ -26,10 +19,30 @@
       ]
     },
     "context7": {
-      "command": "npx",
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "-y",
         "@upstash/context7-mcp@latest"
+      ]
+    },
+    "git": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "uvx",
+        "mcp-server-git"
+      ]
+    },
+    "filesystem": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "D:/Git/Geminiclauderireki26.2.28"
       ]
     }
   }
